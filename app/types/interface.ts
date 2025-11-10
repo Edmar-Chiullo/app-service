@@ -25,10 +25,38 @@ export interface ItemOS {
 
 export interface OrdemServico {
   placa: string;
+  ano: string;
+  marca: string;
+  modelo: string;
   nomeCliente: string;
   cpfCliente: string;
-  dataAbertura: number;
-  dataFechamento: number | 'none';
+  dataAbertura: number | string;
+  dataFechamento: number | 'none' | string;
   status: 'Aberta' | 'Finalizada' | 'Cancelada';
   itens: ItemOS[];
 }
+
+// TIPAGEM DE DADOS
+export interface OSListProps {
+  id: string;
+  cpfCliente: string;
+  dataAbertura: number;
+  itens: Array<{
+    id: string;
+    descricao: string;
+    valor_unitario: number;
+    quantidade: number;
+  }>;
+  nomeCliente: string;
+  placa: string;
+  status: 'Aberta' | 'Finalizada' | 'Cancelada';
+  service: string; // Isso parece ser o ID/Path do serviço ou o conjunto de dados completo
+}
+
+// Interface auxiliar para o snapshot do Firebase
+export interface OsItem extends OSListProps {
+    [key: string]: any;
+}
+
+// Opções de Status
+export type FilterStatus = 'Todos' | 'Aberta' | 'Finalizada' | 'Cancelada';

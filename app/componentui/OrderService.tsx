@@ -1,349 +1,366 @@
-'use client';
-import React, { useState, useMemo } from 'react';
-import { useRouter} from 'next/navigation';
-import { ItemOS, OrdemServico, Peca, Servico } from '../types/interface';
-import { MOCKED_CATALOG_PARTS, MOCKED_CATALOG_SERVICES } from '../data/data-service';
-import { ToastContainer, toast } from 'react-toastify';
-import { db }  from '../data/firebase-data';
-import { ref, set } from "firebase/database";
-import { formatDate } from '../utils/utils';
+'use client'
 
-// --- Componente Principal ---
-export default function OrderServiceApp() {
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { FilterStatus, OsItem, OSListProps } from "../types/interface";
+import { useEffect, useMemo, useState } from "react";
+import { calculateTotal, formatDate, rangeWeek } from "../utils/utils";
+import { DataSnapshot, onChildChanged, ref, update } from "firebase/database";
+import { db } from "../data/firebase-data";
+
+interface CompState {
+  status: boolean,
+  component: string
+}
+
+export function OrderService({ service, toggle }: { service: OSListProps[] | any[], toggle: (status: CompState)=> void }) {
+  const [osList, setOsList] = useState<OSListProps[]>(service || []);
+  const [osDay, setOsDay] = useState<string>('0')
+  const [osWeek, setOsWeek] = useState<string>('0')
+  const [osMonth, setOsMonth] = useState<string>('0')
+
+  const statusOptions = ['Aberta', 'Finalizada', 'Cancelada'];
+
+  // Usamos useSearchParams para obter os valores atuais dos filtros na URL
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const { replace } = useRouter();
   
-  // Estado para armazenar o Catálogo (será substituído pelo fetch do RTDB)
-  const [catalogoServicos, setCatalogoServicos] = useState<Servico[]>(MOCKED_CATALOG_SERVICES);
-  const [catalogoPecas, setCatalogoPecas] = useState<Peca[]>(MOCKED_CATALOG_PARTS);
+  // Obtém os filtros da URL
+  const currentQuery = searchParams.get('query')?.toString() || '';
+  const currentStatus = searchParams.get('status')?.toString() as FilterStatus || 'Todos';
 
-  const router = useRouter();
+  const router = useRouter()
 
-  // Estado da Ordem de Serviço
-  const [os, setOs] = useState<OrdemServico>({
-    placa: '',
-    nomeCliente: '',
-    cpfCliente: '',
-    dataAbertura: Date.now(),
-    dataFechamento: 'none',
-    status: 'Aberta',
-    itens: [],
-  });
+  useEffect(() => {
+    // Isso é crucial para garantir que os dados iniciais sejam carregados corretamente.
+    if (service && service.length > 0) {
+      setOsList(service);
+    }
+  }, [service]);
 
-  // Estado do formulário de adição de item
-  const [addItemForm, setAddItemForm] = useState({
-    tipoItem: 'servico' as 'servico' | 'peca',
-    itemSelecionadoId: '',
-    quantidade: 1,
-    valorUnitario: 0,
-  });
+  useEffect(() => {
+    const calcs = calcOsTimePeriods(osList)
 
-  // Cálculo dos totais
-  const { totalServicos, totalPecas, totalGeral } = useMemo(() => {
-    let totalServicos = 0;
-    let totalPecas = 0;
+    setOsDay(new Intl.NumberFormat('pt-BR', {style: "currency", currency: "BRL"}).format(calcs.totalDiario))
+    setOsWeek(new Intl.NumberFormat('pt-BR', {style: "currency", currency: "BRL"}).format(calcs.totalSemanal))
+    setOsMonth(new Intl.NumberFormat('pt-BR', {style: "currency", currency: "BRL"}).format(calcs.totalMensal))
+  }, [osList])
 
-    os.itens.forEach(item => {
-      const totalItem = item.quantidade * item.valor_unitario;
-      if (item.tipo === 'servico') {
-        totalServicos += totalItem;
-      } else {
-        totalPecas += totalItem;
-      }
+  const filteredOsList:OSListProps[] = useMemo(() => {
+    let list = osList;
+
+    // A. Filtro por Termo de Busca (Placa ou Cliente)
+    if (currentQuery) {
+      const termo = currentQuery.toLowerCase();
+      list = list.filter((os:OSListProps) => 
+          os.placa.toLowerCase().includes(termo) || 
+          os.nomeCliente.toLowerCase().includes(termo)
+      );
+    }
+
+    // B. Filtro por Status
+    if (currentStatus && currentStatus !== 'Todos') {
+      list = list.filter((os:OSListProps) => os.status === currentStatus);
+    }
+
+    return list;
+  }, [osList, currentQuery, currentStatus]);
+  
+  useEffect(() => {
+    // Verifica se 'service' é um array e se tem dados para evitar erros de tipagem/lógica.
+    if (!Array.isArray(service) || service.length === 0) return;
+
+    // Assumindo que a data é a do primeiro item para montar o path de hoje.
+    // É mais seguro usar uma data fixa ou o path base se for buscar todos os dados.
+    const initialDate = service[0]?.dataAbertura || Date.now();
+    const formattedDate = formatDate(initialDate).replace(/\//g, '');
+    
+    // Supondo que você está ouvindo todas as alterações de OSs de um determinado dia.
+    const dbPath = `orderService/${formattedDate}/`;
+    const dbRef = ref(db, dbPath);
+
+    const unsubscribeChange = onChildChanged(dbRef, (snapshot: DataSnapshot) => {
+        if (snapshot.exists()) {
+            const value: OsItem = snapshot.val();
+            // A chave do Firebase é o ID, que você parece estar tratando como 'placa' no seu código.
+            // Para maior segurança, o ID (key) do snapshot deve ser usado, mas mantive a lógica de 'placa' para a correção do estado.
+            
+            if (value && value.placa) {
+                setOsList((prev) => {
+                  const updatedList = prev.map((item) => {
+                      // Usa a placa como chave de atualização
+                      if (item.placa === value.placa) {
+                          // Retorna o valor atualizado do Firebase
+                          return value as OSListProps; 
+                      }
+                      return item;
+                  });
+                  return updatedList;
+                });
+            }
+        }
+    });
+
+    const rangeDays = rangeWeek() 
+    return () => {
+        unsubscribeChange();
+    };
+
+  }, [service]); // Depende da prop 'service' para inicializar o listener
+  
+  const handleSearch = (term: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1'); // Volta para a primeira página ao buscar
+    if (term) {
+      params.set('query', term);
+    } else {
+      params.delete('query');
+    }
+    replace(`${pathname}?${params.toString()}`);
+  }
+  
+  const getStatusStyleLocal = (status: 'Aberta' | 'Finalizada' | 'Cancelada') => {
+    switch (status) {
+      case 'Aberta':
+        return 'bg-blue-100 text-blue-800 border-blue-500'; 
+      case 'Finalizada':
+        return 'bg-green-100 text-green-800 border-green-500';
+      case 'Cancelada':
+        return 'bg-red-100 text-red-800 border-red-500';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-500';
+    }
+  };
+
+  const handleStatusFilterChange = (status: FilterStatus) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    if (status && status !== 'Todos') {
+      params.set('status', status); // Usa 'status' como chave para o filtro
+    } else {
+      params.delete('status');
+    }
+    replace(`${pathname}?${params.toString()}`);
+  }
+
+  const handleStatusDetail = (status: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    if (status && status !== 'Todos') {
+      params.set('status', status); 
+    } else {
+      params.delete('status');
+    }
+    replace(`${pathname}?${params.toString()}`);
+
+    toggle({component: 'upService', status: true})
+
+  }
+
+  const updateStatus = async ({ status, placa }: { status: string, placa: string }) => {
+    // 1. Encontra a OS no estado para pegar a 'dataAbertura' correta
+    const osToUpdate = osList.find(os => os.placa === placa);
+
+    if (!osToUpdate) {
+        console.error('OS não encontrada para a placa:', placa);
+        return;
+    }
+
+    const path = `orderService/${formatDate(osToUpdate.dataAbertura).replace(/\//g, '')}/${placa}`;
+    
+    try {
+        // 2. Atualiza o Firebase
+        await update(ref(db, path), {
+            status: status
+        });
+
+        // 3. O 'onChildChanged' do Firebase se encarregará de atualizar o estado `osList`.
+        // Você pode remover a atualização manual do estado `setOsList` que estava aqui,
+        // pois o useEffect fará a sincronização, garantindo que o estado reflita o DB.
+        
+        // Se a atualização do Firebase falhar, a UI não é atualizada.
+        return { success: true, message: 'Status atualizado com sucesso!' };
+
+    } catch (erro) {
+        console.error('Falha ao atualizar o status no Firebase:', erro);
+        return {
+            success: false,
+            message: 'Falha ao gravar o status!'
+        };
+    }
+  }
+
+  function getCreateService() {
+    toggle({component: 'creService', status: true})
+  }
+
+function calcOsTimePeriods(osList:OSListProps[]) {
+    const dataHoje = new Date();
+    dataHoje.setHours(0, 0, 0, 0); // Zera o tempo para comparação de dia (Hoje)
+
+    // Data de 7 dias atrás (para cálculo semanal)
+    const dataUmaSemanaAtras = new Date(dataHoje);
+    dataUmaSemanaAtras.setDate(dataHoje.getDate() - 7); 
+
+    // Data do primeiro dia do mês atual (para cálculo mensal)
+    const dataInicioMes = new Date(dataHoje.getFullYear(), dataHoje.getMonth(), 1);
+    dataInicioMes.setHours(0, 0, 0, 0);
+
+    let totalDiario = 0;
+    let totalSemanal = 0;
+    let totalMensal = 0;
+
+    osList.forEach((os:any) => {
+        // 1. Filtragem de base: Deve ter data e status 'Finalizada'
+        if (os.dataAbertura && os.status === 'Finalizada') {
+            const dayDataAbertura = new Date(os.dataAbertura);
+            dayDataAbertura.setHours(0, 0, 0, 0); // Zera o tempo para comparação
+
+            // 2. Cálculo do valor total dos itens desta OS
+            const valorOs = os.itens.reduce((sum:number, item:OsItem) => {
+                // Soma valor_unitario (usa 0 se for undefined/null)
+                return sum + (item.valor_unitario || 0); 
+            }, 0);
+
+            // --- Lógica Diária ---
+            // Compara se a dataAbertura é exatamente igual a dataHoje (Dia/Mês/Ano)
+            if (dayDataAbertura.getTime() === dataHoje.getTime()) {
+                totalDiario += valorOs;
+            }
+
+            // --- Lógica Semanal ---
+            // Verifica se a dataAbertura está entre "7 dias atrás" e "hoje" (inclusive)
+            if (dayDataAbertura >= dataUmaSemanaAtras && dayDataAbertura <= dataHoje) {
+                totalSemanal += valorOs;
+            }
+            
+            if (dayDataAbertura >= dataInicioMes && dayDataAbertura <= dataHoje) {
+                totalMensal += valorOs;
+            }
+        }
     });
 
     return {
-      totalServicos: totalServicos,
-      totalPecas: totalPecas,
-      totalGeral: totalServicos + totalPecas,
+        totalDiario,
+        totalSemanal,
+        totalMensal
     };
-  }, [os.itens]);
-
-  // Função para adicionar item à OS
-  const handleAddItemToOS = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const catalogoAtual = addItemForm.tipoItem === 'servico' ? catalogoServicos : catalogoPecas;
-    const itemEncontrado = catalogoAtual.find(item => item.id === addItemForm.itemSelecionadoId);
-
-    if (!itemEncontrado || addItemForm.quantidade <= 0 || addItemForm.valorUnitario <= 0) {
-      toast.error('Selecione um item válido, quantidade e valor unitário maiores que zero.',
-        { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
-      );
-      return;
-    }
-
-    const novoItemOS: ItemOS = {
-      id: Math.random().toString(36).substring(2, 9), // ID único para o item na OS
-      descricao: itemEncontrado.nome,
-      tipo: addItemForm.tipoItem,
-      quantidade: addItemForm.quantidade,
-      valor_unitario: addItemForm.valorUnitario,
-    };
-
-    setOs(prevOs => ({
-      ...prevOs,
-      itens: [...prevOs.itens, novoItemOS],
-    }));
-
-    // Resetar o formulário de adição
-    setAddItemForm({
-      tipoItem: addItemForm.tipoItem,
-      itemSelecionadoId: '',
-      quantidade: 1,
-      valorUnitario: 0,
-    });
-  };
-
-  // Função para remover item da OS
-  const handleRemoveItem = (id: string) => {
-    setOs(prevOs => ({
-      ...prevOs,
-      itens: prevOs.itens.filter(item => item.id !== id),
-    }));
-  };
-
-  // Função para salvar a OS (Placeholder para conexão RTDB)
-const handleSaveOS = () => {
-  set(ref(db, `orderService/${formatDate(os.dataAbertura).replace(/\//g, '')}/${os.placa}`), {
-    placa: os.placa,
-    nomeCliente: os.nomeCliente,
-    cpfCliente: os.cpfCliente,
-    dataAbertura: os.dataAbertura,
-    status: os.status,
-    itens: os.itens
-  });
-
-  if (os.placa && os.nomeCliente) {
-    toast.success(`Ordem de Serviço (para o veículo: ${os.placa}) salva com sucesso!`,
-      { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
-    );
-  } else {
-    toast.error('Preencha a Placa, Nome do Cliente e adicione pelo menos 1 item antes de salvar.',
-      { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
-    );
-  }
-
-  // Resetar a OS após salvar
-  setOs({
-    placa: '',
-    nomeCliente: '',
-    cpfCliente: '',
-    dataAbertura: Date.now(),
-    dataFechamento: 'none',
-    status: 'Aberta',
-    itens: [],
-  });
-  router.push('/cadastro'); // Redirecionar para a página inicial ou outra página desejada
-};
-
-  // Retorna a lista de itens do catálogo baseado no tipo selecionado
-  const itensCatalogo = addItemForm.tipoItem === 'servico' ? catalogoServicos : catalogoPecas;
-
-  // Renderiza a tabela de itens na OS
-  const renderOsItemsTable = () => (
-    <div className="overflow-x-auto shadow-md rounded-xl">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-indigo-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Descrição</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Tipo</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Qtd</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Vl. Unitário</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total</th>
-            <th className="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-100">
-          {os.itens.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="text-center py-4 text-gray-500 italic">Nenhum serviço ou peça adicionada.</td>
-            </tr>
-          ) : (
-            os.itens.map(item => (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-500">{item.descricao}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-xs">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full  ${item.tipo === 'servico' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                    {item.tipo === 'servico' ? 'Serviço' : 'Peça'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-500">{item.quantidade}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-500">R$ {item.valor_unitario.toFixed(2).replace('.', ',')}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-right text-gray-500">R$ {(item.quantidade * item.valor_unitario).toFixed(2).replace('.', ',')}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-right">
-                  <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700 transition duration-150">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+}
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans">
-      <ToastContainer />
-      <header className="mb-8">
-        <h1 className="text-3xl font-extrabold text-indigo-700">
-          Abertura e Detalhes da Ordem de Serviço (OS)
-        </h1>
-        <p className="text-gray-500 mt-1">Status: <span className="font-bold text-green-600">{os.status}</span></p>
+      {/* ... (Header e Botão de Nova OS - Não alterado) ... */}
+      <header className="mb-8 flex justify-between items-center flex-wrap gap-4">
+         <h1 className="text-3xl font-extrabold text-indigo-700">
+           Ordens de Serviço
+         </h1>
+         <button
+           onClick={() => getCreateService()}
+           className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md flex items-center gap-2"
+         >
+           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" /></svg>
+           Nova OS
+         </button>
       </header>
-
-      <main className="space-y-8">
-        {/* --- 1. DETALHES GERAIS DA OS / CLIENTE --- */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-indigo-500">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Dados do Cliente e Veículo</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Placa do Veículo</label>
-              <input
-                type="text"
-                value={os.placa}
-                onChange={(e) => setOs(p => ({ ...p, placa: e.target.value.toUpperCase() }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 uppercase text-gray-500"
-                placeholder="Ex: ABC1234"
-                maxLength={7}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Nome do Cliente</label>
-              <input
-                type="text"
-                value={os.nomeCliente}
-                onChange={(e) => setOs(p => ({ ...p, nomeCliente: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                placeholder="João da Silva"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">CPF do Cliente (Opcional)</label>
-              <input
-                type="text"
-                value={os.cpfCliente}
-                onChange={(e) => setOs(p => ({ ...p, cpfCliente: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                placeholder="123.456.789-00"
-              />
-            </div>
-          </div>
+      
+      {/* Filtros e Busca */}
+       <div className="grid grid-rows-3 grid-cols-1 items-center md:grid-cols-3 md:grid-rows-1 justify-items-center gap-4 bg-white px-6 py-2 rounded-xl shadow-lg mb-6">
+        <div className="col.start-1 flex flex-col gap-2 w-96 h-20 border-r text-center text-gray-500 border-gray-300">
+          <h3>Total de serviço (dia):</h3>
+          <h1 className="text-2xl text-gray-600 font-bold">{`${osDay}`}</h1>
         </div>
-
-        {/* --- 2. ADICIONAR ITENS (SERVIÇOS/PEÇAS) --- */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-blue-500">
-          <h2 className="text-2xl font-semibold text-gray-800 mb-4">Adicionar Itens à OS</h2>
-          <form onSubmit={handleAddItemToOS} className="grid grid-cols-1 sm:grid-cols-5 gap-4 items-end">
-            {/* Tipo de Item (Serviço/Peça) */}
-            <div className="col-span-1">
-              <label className="block text-sm font-medium text-gray-700">Tipo</label>
-              <select
-                value={addItemForm.tipoItem}
-                onChange={(e) => setAddItemForm(p => ({ ...p, tipoItem: e.target.value as 'servico' | 'peca', itemSelecionadoId: '' }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-500"
-              >
-                <option value="servico">Serviço</option>
-                <option value="peca">Peça</option>
-              </select>
-            </div>
-
-            {/* Seleção do Item do Catálogo */}
-            <div className="col-span-1 sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Item do Catálogo</label>
-              <select
-                value={addItemForm.itemSelecionadoId}
-                onChange={(e) => setAddItemForm(p => ({ ...p, itemSelecionadoId: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-500"
-                required
-              >
-                <option value="">Selecione um item...</option>
-                {itensCatalogo.map(item => (
-                  <option key={item.id} value={item.id}>{item.nome} ({item.codigo})</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Quantidade */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Qtd</label>
-              <input
-                type="number"
-                value={addItemForm.quantidade}
-                onChange={(e) => setAddItemForm(p => ({ ...p, quantidade: Math.max(1, parseInt(e.target.value) || 0) }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-right text-gray-500"
-                min="1"
-                required
-              />
-            </div>
-
-            {/* Valor Unitário */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Vl. Unitário (R$)</label>
-              <input
-                type="number"
-                step="0.01"
-                value={addItemForm.valorUnitario || ''}
-                onChange={(e) => setAddItemForm(p => ({ ...p, valorUnitario: parseFloat(e.target.value) || 0}))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-right text-gray-500"
-                min="0.01"
-                required
-              />
-            </div>
-            
-            {/* Botão Adicionar */}
-            <div className="col-span-1 sm:col-span-1">
-              <button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md transform hover:scale-[1.02]"
-              >
-                Adicionar
-              </button>
-            </div>
-          </form>
+        <div className="col.start-2 flex flex-col gap-2 w-70 h-20 text-center text-gray-500">
+          <h3>Total de serviço (semana):</h3>
+          <h1 className="text-2xl text-gray-600 font-bold">{`${osWeek}`}</h1>
         </div>
-                
-        {/* --- 3. LISTA DE ITENS DA OS E TOTAIS --- */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Itens da Ordem</h2>
-            {renderOsItemsTable()}
-          </div>
-          
-          {/* TOTAIS */}
-          <div className="lg:col-span-1">
-            <div className="bg-indigo-50 p-6 rounded-xl shadow-lg">
-              <h3 className="text-xl font-bold text-indigo-700 mb-4">Resumo Financeiro</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-gray-600">
-                  <span>Total Serviços:</span>
-                  <span className="font-medium">R$ {totalServicos.toFixed(2).replace('.', ',')}</span>
-                </div>
-                <div className="flex justify-between items-center text-gray-600">
-                  <span>Total Peças:</span>
-                  <span className="font-medium">R$ {totalPecas.toFixed(2).replace('.', ',')}</span>
-                </div>
-                <div className="border-t border-indigo-200 pt-4 flex justify-between items-center text-2xl font-extrabold text-indigo-800">
-                  <span>TOTAL GERAL:</span>
-                  <span>R$ {totalGeral.toFixed(2).replace('.', ',')}</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* BOTÃO DE AÇÃO PRINCIPAL */}
-            <div className="mt-6">
-              <button
-                onClick={handleSaveOS}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-extrabold py-3 px-4 rounded-lg transition duration-150 shadow-xl transform hover:scale-[1.01]"
-              >
-                Salvar Ordem de Serviço
-              </button>
-              <p className="text-xs text-center text-gray-400 mt-2">Pronto para conectar ao seu RTDB.</p>
-            </div>
-          </div>
+        <div className="col.start-3 flex flex-col gap-2 w-96 h-20 border-l text-center text-gray-500 border-gray-300">
+          <h3>Total de serviço (mês):</h3>
+          <h1 className="text-2xl text-gray-600 font-bold">{`${osMonth}`}</h1>
         </div>
+      </div>
+      <div className="bg-white p-6 rounded-xl shadow-lg mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700">Buscar por Placa ou Cliente</label>
+          <input
+            type="text"
+            defaultValue={currentQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
+            placeholder="Ex: ABC1234 ou Ana Silva"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Status</label>
+          <select
+            value={currentStatus} // Usa o valor da URL
+            onChange={(e) => handleStatusFilterChange(e.target.value as FilterStatus)}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
+          >
+            <option value="Todos">Todos</option>
+            <option value="Aberta">Aberta</option>
+            <option value="Finalizada">Finalizada</option>
+            <option value="Cancelada">Cancelada</option>
+          </select>
+        </div>
+      </div>
 
-      </main>
+      {/* Tabela de Listagem */}
+      <div className="overflow-x-auto shadow-xl rounded-xl">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="h-3 bg-indigo-50">
+            <tr>
+              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">OS ID</th>
+              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Placa</th>
+              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Cliente</th>
+              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Data Abertura</th>
+              <th className="px-6 py-2 text-center text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total</th>
+              <th className="px-6 py-2 text-center text-xs font-semibold text-indigo-700 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-2"></th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-100">
+            {filteredOsList.length === 0 || false ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-6 text-gray-500 italic">
+                      Nenhuma Ordem de Serviço encontrada.
+                  </td>
+                </tr>
+              ) : ( 
+                filteredOsList.map((os: OSListProps) => ( 	 	 	 	 
+                  <tr key={os.placa} className="hover:bg-gray-50 transition duration-100">
+                    <td className="px-6 py-1 whitespace-nowrap text-sm font-medium text-gray-900">{os.itens[0]?.id.toUpperCase()}</td>
+                    <td className="px-6 py-1 whitespace-nowrap text-sm font-semibold text-indigo-600">{os.placa}</td>
+                    <td className="px-6 py-1 whitespace-nowrap text-sm text-gray-800">{os.nomeCliente}</td>
+                    <td className="px-6 py-1 whitespace-nowrap text-sm text-gray-800">{formatDate(os.dataAbertura)}</td>
+                    <td className="px-6 py-1 whitespace-nowrap text-sm font-extrabold text-right text-gray-600">{calculateTotal(os.itens)}</td>
+                    <td className="px-6 py-1 whitespace-nowrap text-center">
+                      <select 
+                        value={os.status} 
+                        onChange={(e) => updateStatus({status: e.target.value, placa: os.placa})} 
+                        className={`px-3 py-1 inline-flex text-md leading-5 font-semibold rounded-full hover:cursor-pointer border ${getStatusStyleLocal(os.status)}`}
+                      >
+                        {statusOptions.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                            onClick={() => handleStatusDetail(os.itens[0]?.id)}
+                            className="text-indigo-600 hover:text-indigo-900 transition duration-150 font-semibold hover:cursor-pointer"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                            Ver Detalhes
+                        </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+          </tbody>
+        </table>
+      </div>
     </div>
-  );
-};
+  )
+}

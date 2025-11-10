@@ -1,14 +1,12 @@
 'use client';
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { usePathname, useRouter, useSearchParams} from 'next/navigation';
-import { ItemOS, OrdemServico, OSListProps, Peca, Servico } from '../types/interface';
+import React, { useState, useMemo } from 'react';
+import { useRouter} from 'next/navigation';
+import { ItemOS, OrdemServico, Peca, Servico } from '../types/interface';
 import { MOCKED_CATALOG_PARTS, MOCKED_CATALOG_SERVICES } from '../data/data-service';
 import { ToastContainer, toast } from 'react-toastify';
 import { db }  from '../data/firebase-data';
 import { ref, set } from "firebase/database";
 import { formatDate } from '../utils/utils';
-import { getServices } from '../lib/server-function';
 
 interface CompState {
   status: boolean,
@@ -16,13 +14,13 @@ interface CompState {
 }
 
 // --- Componente Principal ---
-export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (status: CompState)=> void, query: string}) {
+export default function OrderCreateService({ toggle }: {toggle: (status: CompState)=> void}) {
   
   // Estado para armazenar o Catálogo (será substituído pelo fetch do RTDB)
   const [catalogoServicos, setCatalogoServicos] = useState<Servico[]>(MOCKED_CATALOG_SERVICES);
   const [catalogoPecas, setCatalogoPecas] = useState<Peca[]>(MOCKED_CATALOG_PARTS);
-  const [ser, setSer] = useState<OrdemServico>();
-  
+
+  // Estado da Ordem de Serviço
   const [os, setOs] = useState<OrdemServico>({
     placa: '',
     ano: '',
@@ -35,40 +33,6 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
     status: 'Aberta',
     itens: [],
   });
-
-  const pathname = usePathname();
-  const router = useRouter();
-
-  
-  useEffect(() => {
-    // 1. Inicia a busca
-    getServices(query).then((resultArray: any) => {
-      // 2. O resultado da busca é 'resultArray'
-      
-      // Pega o primeiro item do array (se existir)
-      const serviceData = resultArray[0]; 
-
-      // Se o dado existe, define o estado 'os'
-      if (serviceData) {
-          setOs({
-              // Aqui, usamos serviceData, que é o objeto que você quer
-              placa: serviceData.placa,
-              ano: serviceData.ano,
-              marca: serviceData.marca,
-              modelo: serviceData.modelo,
-              nomeCliente: serviceData.nomeCliente,
-              cpfCliente: serviceData.cpfCliente,
-              dataAbertura: serviceData.dataAbertura,
-              
-              // Dados que vêm de resultArray (array) ou serviceData (objeto)
-              dataFechamento: 'none',
-              status: serviceData.status, // Correto: serviceData.status
-              itens: serviceData.itens,
-          });
-      }
-    })  
-  }, [query])
-      
 
   // Estado do formulário de adição de item
   const [addItemForm, setAddItemForm] = useState({
@@ -153,7 +117,6 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
       nomeCliente: os.nomeCliente,
       cpfCliente: os.cpfCliente,
       dataAbertura: os.dataAbertura,
-      dataFechamento: os.dataFechamento,
       status: os.status,
       itens: os.itens
     });
@@ -181,9 +144,8 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
       status: 'Aberta',
       itens: [],
     });
-    
+
     toggle({component: 'serView', status: true})
-    router.replace(`${pathname}`)
   };
 
   // Retorna a lista de itens do catálogo baseado no tipo selecionado
@@ -238,7 +200,7 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
       <ToastContainer />
       <header className="mb-8">
         <h1 className="text-3xl font-extrabold text-indigo-700">
-          Editar Ordem de Serviço (OS)
+          Abertura e Detalhes da Ordem de Serviço (OS)
         </h1>
         <p className="text-gray-500 mt-1">Status: <span className="font-bold text-green-600">{os.status}</span></p>
       </header>
@@ -316,7 +278,8 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
                 required
               />
             </div>
-          </div>       
+          </div>
+          
         </div>
 
         {/* --- 2. ADICIONAR ITENS (SERVIÇOS/PEÇAS) --- */}

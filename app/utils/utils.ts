@@ -1,9 +1,9 @@
-import { ItemOS, OrdemServico } from "../types/interface";
+import { OrdemServico, OSListProps } from "../types/interface";
 
-// Função auxiliar para calcular o total de uma OS (reuso de lógica)
-export const calculateTotal = (itens: ItemOS[]): number => {
-    return itens.reduce((acc, item) => acc + (item.quantidade * item.valor_unitario), 0);
-};
+export const calculateTotal = (itens: OSListProps['itens']) => {
+    const total = itens.reduce((acc, item) => acc + item.valor_unitario * item.quantidade, 0);
+    return `R$ ${total.toFixed(2).replace('.', ',')}`;
+  }
 
 // Função utilitária para formatar a data
 export const formatDate = (timestamp: number) => {
@@ -23,3 +23,13 @@ export const getStatusStyle = (status: OrdemServico['status']) => {
         default: return 'bg-gray-100 text-gray-800';
     }
 };
+
+// Captura o dias da semana
+export function rangeWeek() {
+    const hoje = new Date();
+    const primeiroDiaSemana = new Date(hoje);
+    const date = hoje.getDay()
+    primeiroDiaSemana.setDate(hoje.getDate() - date)
+
+    return { primeiroDiaSemana: primeiroDiaSemana.getDay(), diaDeHoje: date}
+}

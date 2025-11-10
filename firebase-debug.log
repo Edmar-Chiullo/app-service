@@ -1,48 +1,48 @@
-[debug] [2025-11-08T12:54:56.466Z] ----------------------------------------------------------------------
-[debug] [2025-11-08T12:54:56.470Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\liteidtech\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js emulators:start
-[debug] [2025-11-08T12:54:56.470Z] CLI Version:   13.29.1
-[debug] [2025-11-08T12:54:56.471Z] Platform:      win32
-[debug] [2025-11-08T12:54:56.471Z] Node Version:  v22.13.0
-[debug] [2025-11-08T12:54:56.471Z] Time:          Sat Nov 08 2025 09:54:56 GMT-0300 (Horário Padrão de Brasília)
-[debug] [2025-11-08T12:54:56.471Z] ----------------------------------------------------------------------
+[debug] [2025-11-10T10:05:32.254Z] ----------------------------------------------------------------------
+[debug] [2025-11-10T10:05:32.258Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\liteidtech\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js emulators:start
+[debug] [2025-11-10T10:05:32.259Z] CLI Version:   13.29.1
+[debug] [2025-11-10T10:05:32.259Z] Platform:      win32
+[debug] [2025-11-10T10:05:32.259Z] Node Version:  v22.13.0
+[debug] [2025-11-10T10:05:32.260Z] Time:          Mon Nov 10 2025 07:05:32 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2025-11-10T10:05:32.260Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2025-11-08T12:54:56.478Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
-[debug] [2025-11-08T12:54:56.716Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2025-11-08T12:54:56.717Z] > authorizing via signed-in user (ecschiullo@gmail.com)
-[debug] [2025-11-08T12:54:56.955Z] java version "22.0.1" 2024-04-16
+[debug] [2025-11-10T10:05:32.266Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2025-11-10T10:05:32.508Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-11-10T10:05:32.509Z] > authorizing via signed-in user (ecschiullo@gmail.com)
+[debug] [2025-11-10T10:05:32.756Z] java version "22.0.1" 2024-04-16
 
-[debug] [2025-11-08T12:54:56.956Z] Java(TM) SE Runtime Environment (build 22.0.1+8-16)
+[debug] [2025-11-10T10:05:32.757Z] Java(TM) SE Runtime Environment (build 22.0.1+8-16)
 Java HotSpot(TM) 64-Bit Server VM (build 22.0.1+8-16, mixed mode, sharing)
 
-[debug] [2025-11-08T12:54:56.990Z] Parsed Java major version: 22
+[debug] [2025-11-10T10:05:32.792Z] Parsed Java major version: 22
 [info] i  emulators: Starting emulators: database {"metadata":{"emulator":{"name":"hub"},"message":"Starting emulators: database"}}
-[debug] [2025-11-08T12:54:57.012Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
-[debug] [2025-11-08T12:54:57.012Z] [database] Database Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
-[debug] [2025-11-08T12:54:57.012Z] assigned listening specs for emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"database":[{"address":"127.0.0.1","family":"IPv4","port":9000}]},"metadata":{"message":"assigned listening specs for emulators"}}
-[debug] [2025-11-08T12:54:57.019Z] [hub] writing locator at C:\Users\LITEID~1\AppData\Local\Temp\hub-service-app-4f7ca.json
-[debug] [2025-11-08T12:54:57.030Z] Checked if tokens are valid: false, expires at: 1762536269238
-[debug] [2025-11-08T12:54:57.030Z] Checked if tokens are valid: false, expires at: 1762536269238
-[debug] [2025-11-08T12:54:57.031Z] > refreshing access token with scopes: []
-[debug] [2025-11-08T12:54:57.033Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
-[debug] [2025-11-08T12:54:57.033Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[debug] [2025-11-08T12:54:57.343Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
-[debug] [2025-11-08T12:54:57.344Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
-[debug] [2025-11-08T12:54:57.525Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
-[debug] [2025-11-08T12:54:57.526Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[debug] [2025-11-08T12:54:57.548Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/service-app-4f7ca [none]
-[debug] [2025-11-08T12:54:58.639Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/service-app-4f7ca 200
-[debug] [2025-11-08T12:54:58.639Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/service-app-4f7ca {"projectId":"service-app-4f7ca","projectNumber":"10598241055","displayName":"service-app","name":"projects/service-app-4f7ca","resources":{"hostingSite":"service-app-4f7ca","realtimeDatabaseInstance":"service-app-4f7ca-default-rtdb"},"state":"ACTIVE","etag":"1_fe56b1da-a48c-4703-a0f4-d57a191541eb"}
-[debug] [2025-11-08T12:54:58.640Z] database rules config:  [{"instance":"service-app-4f7ca-default-rtdb","rules":"C:\\Users\\liteidtech\\Documents\\Projetos-NextJs\\aplicativo-servico\\database.rules.json"}]
-[debug] [2025-11-08T12:54:58.658Z] Ignoring unsupported arg: projectId {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: projectId"}}
-[debug] [2025-11-08T12:54:58.659Z] Ignoring unsupported arg: auto_download {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: auto_download"}}
-[debug] [2025-11-08T12:54:58.659Z] Ignoring unsupported arg: rules {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: rules"}}
-[debug] [2025-11-08T12:54:58.659Z] Starting Database Emulator with command {"binary":"java","args":["-Duser.language=en","-jar","C:\\Users\\liteidtech\\.cache\\firebase\\emulators\\firebase-database-emulator-v4.11.2.jar","--host","127.0.0.1","--port",9000,"--single_project_mode","Warning"],"optionalArgs":["port","host","functions_emulator_port","functions_emulator_host","single_project_mode"],"joinArgs":false,"shell":false,"port":9000} {"metadata":{"emulator":{"name":"database"},"message":"Starting Database Emulator with command {\"binary\":\"java\",\"args\":[\"-Duser.language=en\",\"-jar\",\"C:\\\\Users\\\\liteidtech\\\\.cache\\\\firebase\\\\emulators\\\\firebase-database-emulator-v4.11.2.jar\",\"--host\",\"127.0.0.1\",\"--port\",9000,\"--single_project_mode\",\"Warning\"],\"optionalArgs\":[\"port\",\"host\",\"functions_emulator_port\",\"functions_emulator_host\",\"single_project_mode\"],\"joinArgs\":false,\"shell\":false,\"port\":9000}"}}
+[debug] [2025-11-10T10:05:32.807Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-11-10T10:05:32.808Z] [database] Database Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-11-10T10:05:32.808Z] assigned listening specs for emulators {"user":{"hub":[{"address":"127.0.0.1","family":"IPv4","port":4400},{"address":"::1","family":"IPv6","port":4400}],"ui":[{"address":"127.0.0.1","family":"IPv4","port":4000},{"address":"::1","family":"IPv6","port":4000}],"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"database":[{"address":"127.0.0.1","family":"IPv4","port":9000}]},"metadata":{"message":"assigned listening specs for emulators"}}
+[debug] [2025-11-10T10:05:32.813Z] [hub] writing locator at C:\Users\LITEID~1\AppData\Local\Temp\hub-service-app-4f7ca.json
+[debug] [2025-11-10T10:05:32.822Z] Checked if tokens are valid: false, expires at: 1762666136824
+[debug] [2025-11-10T10:05:32.823Z] Checked if tokens are valid: false, expires at: 1762666136824
+[debug] [2025-11-10T10:05:32.823Z] > refreshing access token with scopes: []
+[debug] [2025-11-10T10:05:32.824Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-11-10T10:05:32.825Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-11-10T10:05:33.074Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2025-11-10T10:05:33.074Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2025-11-10T10:05:33.381Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-11-10T10:05:33.381Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-11-10T10:05:33.405Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/service-app-4f7ca [none]
+[debug] [2025-11-10T10:05:34.187Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/service-app-4f7ca 200
+[debug] [2025-11-10T10:05:34.187Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/service-app-4f7ca {"projectId":"service-app-4f7ca","projectNumber":"10598241055","displayName":"service-app","name":"projects/service-app-4f7ca","resources":{"hostingSite":"service-app-4f7ca","realtimeDatabaseInstance":"service-app-4f7ca-default-rtdb"},"state":"ACTIVE","etag":"1_fe56b1da-a48c-4703-a0f4-d57a191541eb"}
+[debug] [2025-11-10T10:05:34.189Z] database rules config:  [{"instance":"service-app-4f7ca-default-rtdb","rules":"C:\\Users\\liteidtech\\Documents\\Projetos-NextJs\\aplicativo-servico\\database.rules.json"}]
+[debug] [2025-11-10T10:05:34.214Z] Ignoring unsupported arg: projectId {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: projectId"}}
+[debug] [2025-11-10T10:05:34.215Z] Ignoring unsupported arg: auto_download {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: auto_download"}}
+[debug] [2025-11-10T10:05:34.215Z] Ignoring unsupported arg: rules {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: rules"}}
+[debug] [2025-11-10T10:05:34.215Z] Starting Database Emulator with command {"binary":"java","args":["-Duser.language=en","-jar","C:\\Users\\liteidtech\\.cache\\firebase\\emulators\\firebase-database-emulator-v4.11.2.jar","--host","127.0.0.1","--port",9000,"--single_project_mode","Warning"],"optionalArgs":["port","host","functions_emulator_port","functions_emulator_host","single_project_mode"],"joinArgs":false,"shell":false,"port":9000} {"metadata":{"emulator":{"name":"database"},"message":"Starting Database Emulator with command {\"binary\":\"java\",\"args\":[\"-Duser.language=en\",\"-jar\",\"C:\\\\Users\\\\liteidtech\\\\.cache\\\\firebase\\\\emulators\\\\firebase-database-emulator-v4.11.2.jar\",\"--host\",\"127.0.0.1\",\"--port\",9000,\"--single_project_mode\",\"Warning\"],\"optionalArgs\":[\"port\",\"host\",\"functions_emulator_port\",\"functions_emulator_host\",\"single_project_mode\"],\"joinArgs\":false,\"shell\":false,\"port\":9000}"}}
 [info] i  database: Database Emulator logging to database-debug.log {"metadata":{"emulator":{"name":"database"},"message":"Database Emulator logging to \u001b[1mdatabase-debug.log\u001b[22m"}}
-[debug] [2025-11-08T12:55:02.420Z] >>> [apiv2][query] PUT http://127.0.0.1:9000/.settings/rules.json ns=service-app-4f7ca-default-rtdb
-[debug] [2025-11-08T12:55:02.420Z] >>> [apiv2][body] PUT http://127.0.0.1:9000/.settings/rules.json "{\n  \"rules\": {\n    \".read\": \"now < 1764903600000\",  // 2025-12-5\n    \".write\": \"now < 1764903600000\",  // 2025-12-5\n  }\n}"
-[debug] [2025-11-08T12:55:03.229Z] <<< [apiv2][status] PUT http://127.0.0.1:9000/.settings/rules.json 200
-[debug] [2025-11-08T12:55:03.229Z] <<< [apiv2][body] PUT http://127.0.0.1:9000/.settings/rules.json {"status":"ok"}
-[debug] [2025-11-08T12:55:03.233Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
+[debug] [2025-11-10T10:05:37.966Z] >>> [apiv2][query] PUT http://127.0.0.1:9000/.settings/rules.json ns=service-app-4f7ca-default-rtdb
+[debug] [2025-11-10T10:05:37.967Z] >>> [apiv2][body] PUT http://127.0.0.1:9000/.settings/rules.json "{\n  \"rules\": {\n    \".read\": \"now < 1764903600000\",  // 2025-12-5\n    \".write\": \"now < 1764903600000\",  // 2025-12-5\n  }\n}"
+[debug] [2025-11-10T10:05:39.162Z] <<< [apiv2][status] PUT http://127.0.0.1:9000/.settings/rules.json 200
+[debug] [2025-11-10T10:05:39.163Z] <<< [apiv2][body] PUT http://127.0.0.1:9000/.settings/rules.json {"status":"ok"}
+[debug] [2025-11-10T10:05:39.187Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
 [info] 
 ┌─────────────────────────────────────────────────────────────┐
 │ ✔  All emulators ready! It is now safe to connect your app. │
