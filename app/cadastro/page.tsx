@@ -6,7 +6,6 @@ export default async function CreateServicePage(props: {searchParams?: Promise<{
     const query = searchParams?.query || '';
 
     const services:any = await getServices(query)
-    console.log(props)
     return (
         <div>
             <OSList service={services} query={query} />
