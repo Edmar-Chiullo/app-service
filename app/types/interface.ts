@@ -60,3 +60,13 @@ export interface OsItem extends OSListProps {
 
 // Opções de Status
 export type FilterStatus = 'Todos' | 'Aberta' | 'Finalizada' | 'Cancelada';
+
+export interface ServiceListProps {
+  id: string | number
+  name: string
+}
+
+export interface ComponentListProps {
+  id: string | number
+  name: string
+}

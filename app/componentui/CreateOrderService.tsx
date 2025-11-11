@@ -1,12 +1,14 @@
 'use client';
-import React, { useState, useMemo } from 'react';
-import { useRouter} from 'next/navigation';
-import { ItemOS, OrdemServico, Peca, Servico } from '../types/interface';
-import { MOCKED_CATALOG_PARTS, MOCKED_CATALOG_SERVICES } from '../data/data-service';
+import React, { useState, useMemo, useEffect } from 'react';
+import { usePathname, useRouter, useSearchParams} from 'next/navigation';
+// Ajuste os imports de interface conforme necessário, mas mantendo a estrutura
+import { ComponentListProps, ItemOS, OrdemServico, ServiceListProps } from '../types/interface';
+import { COMPONENT_LIST, SERVICE_LIST } from '../data/data-service';
 import { ToastContainer, toast } from 'react-toastify';
-import { db }  from '../data/firebase-data';
-import { ref, set } from "firebase/database";
-import { formatDate } from '../utils/utils';
+import { db } from '../data/firebase-data'; // Assumindo que este import está correto
+import { ref, set } from "firebase/database"; // Assumindo que este import está correto
+import { formatDate } from '../utils/utils'; // Assumindo que este import está correto
+import { useDebouncedCallback } from 'use-debounce';
 
 interface CompState {
   status: boolean,
@@ -16,11 +18,18 @@ interface CompState {
 // --- Componente Principal ---
 export default function OrderCreateService({ toggle }: {toggle: (status: CompState)=> void}) {
   
-  // Estado para armazenar o Catálogo (será substituído pelo fetch do RTDB)
-  const [catalogoServicos, setCatalogoServicos] = useState<Servico[]>(MOCKED_CATALOG_SERVICES);
-  const [catalogoPecas, setCatalogoPecas] = useState<Peca[]>(MOCKED_CATALOG_PARTS);
+  // Catálogo (mocked ou vindo de fetch)
+  const [catalogoServicos, setCatalogoServicos] = useState<ServiceListProps[]>(SERVICE_LIST);
+  const [catalogoPecas, setCatalogoPecas] = useState<ComponentListProps[]>(COMPONENT_LIST);
 
-  // Estado da Ordem de Serviço
+  // 1. ESTADOS NOVOS PARA BUSCA E FILTRAGEM
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredItems, setFilteredItems] = useState<Array<ServiceListProps | ComponentListProps>>([]);
+  
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const { replace } = useRouter();
+
   const [os, setOs] = useState<OrdemServico>({
     placa: '',
     ano: '',
@@ -34,15 +43,48 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
     itens: [],
   });
 
-  // Estado do formulário de adição de item
   const [addItemForm, setAddItemForm] = useState({
     tipoItem: 'servico' as 'servico' | 'peca',
-    itemSelecionadoId: '',
+    itemSelecionadoId: '', // ID do item selecionado no catálogo
     quantidade: 1,
     valorUnitario: 0,
   });
 
-  // Cálculo dos totais
+  // Retorna a lista de itens do catálogo baseado no tipo selecionado (lista completa)
+  const itensCatalogoBase = useMemo(() => {
+    return addItemForm.tipoItem === 'servico' ? catalogoServicos : catalogoPecas;
+  }, [addItemForm.tipoItem, catalogoPecas, catalogoServicos]);
+  
+  // Efeito para resetar/atualizar a lista filtrada sempre que o tipo de item mudar
+  useEffect(() => {
+    setFilteredItems(itensCatalogoBase);
+    setSearchTerm(''); // Limpa o termo de busca ao trocar o tipo
+    setAddItemForm(p => ({ ...p, itemSelecionadoId: '' })); // Limpa a seleção
+  }, [addItemForm.tipoItem, itensCatalogoBase]);
+  
+  // 2. FUNÇÃO DE FILTRO COM DEBOUNCE
+  const handleDebouncedSearch = useDebouncedCallback((term: string) => {
+    if (!term) {
+        // Se a busca estiver vazia, mostre a lista base completa
+        setFilteredItems(itensCatalogoBase);
+        return;
+    }
+    
+    const termoLower = term.toLowerCase();
+    
+    // Filtragem em múltiplos campos: nome e id
+    const resultados = itensCatalogoBase.filter(item => {
+        const nomeLower = item.name.toLowerCase();
+        const idLower = item.id.toString().toUpperCase();
+
+        // Verifica se o termo está contido no nome OU no ID
+        return nomeLower.includes(termoLower) || idLower.includes(termoLower);
+    });
+
+    setFilteredItems(resultados);
+  }, 300); // 300ms de atraso
+
+  // Lógica de totais permanece a mesma
   const { totalServicos, totalPecas, totalGeral } = useMemo(() => {
     let totalServicos = 0;
     let totalPecas = 0;
@@ -63,11 +105,13 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
     };
   }, [os.itens]);
 
-  // Função para adicionar item à OS
+  // Lógica de adição e remoção permanece a mesma
   const handleAddItemToOS = (e: React.FormEvent) => {
     e.preventDefault();
 
     const catalogoAtual = addItemForm.tipoItem === 'servico' ? catalogoServicos : catalogoPecas;
+
+    // Busca o item no catálogo completo pelo ID armazenado no estado
     const itemEncontrado = catalogoAtual.find(item => item.id === addItemForm.itemSelecionadoId);
 
     if (!itemEncontrado || addItemForm.quantidade <= 0 || addItemForm.valorUnitario <= 0) {
@@ -78,8 +122,8 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
     }
 
     const novoItemOS: ItemOS = {
-      id: Math.random().toString(36).substring(2, 9), // ID único para o item na OS
-      descricao: itemEncontrado.nome,
+      id: Math.random().toString(36).substring(2, 9),
+      descricao: itemEncontrado.name,
       tipo: addItemForm.tipoItem,
       quantidade: addItemForm.quantidade,
       valor_unitario: addItemForm.valorUnitario,
@@ -97,9 +141,10 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
       quantidade: 1,
       valorUnitario: 0,
     });
+    setSearchTerm(''); // Limpa o termo de busca após adicionar
+    setFilteredItems(itensCatalogoBase); // Restaura a lista completa
   };
 
-  // Função para remover item da OS
   const handleRemoveItem = (id: string) => {
     setOs(prevOs => ({
       ...prevOs,
@@ -107,8 +152,8 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
     }));
   };
 
-  // Função para salvar a OS (Placeholder para conexão RTDB)
   const handleSaveOS = () => {
+    // ... lógica de salvar no DB
     set(ref(db, `orderService/${formatDate(os.dataAbertura as number).replace(/\//g, '')}/${os.placa}`), {
       placa: os.placa,
       ano: os.ano,
@@ -121,7 +166,7 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
       itens: os.itens
     });
 
-    if (os.placa && os.nomeCliente) {
+    if (os.placa && os.nomeCliente && os.itens.length > 0) { // Adicionada validação de itens
       toast.success(`Ordem de Serviço (para o veículo: ${os.placa}) salva com sucesso!`,
         { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
       );
@@ -148,50 +193,56 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
     toggle({component: 'serView', status: true})
   };
 
-  // Retorna a lista de itens do catálogo baseado no tipo selecionado
-  const itensCatalogo = addItemForm.tipoItem === 'servico' ? catalogoServicos : catalogoPecas;
+  // Funções de navegação da URL (não utilizadas na lógica de filtragem local, mas mantidas)
+  // Removi a implementação original pois ela usava a URLSearchParams para filtragem, 
+  // o que não é o ideal para um ComboBox.
+  // Mantive o useDebouncedCallback, mas vazio, apenas para fins de referência.
+  const handleSearch = useDebouncedCallback((term) => { 
+    // Esta função não é mais necessária, pois a lógica está em handleDebouncedSearch
+  }, 300);
 
-  // Renderiza a tabela de itens na OS
+  // Renderiza a tabela de itens na OS (função auxiliar)
   const renderOsItemsTable = () => (
+    // ... (Mantido o código da tabela que você enviou)
     <div className="overflow-x-auto shadow-md rounded-xl">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-indigo-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Descrição</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Tipo</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Qtd</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Vl. Unitário</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total</th>
-            <th className="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-100">
-          {os.itens.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="text-center py-4 text-gray-500 italic">Nenhum serviço ou peça adicionada.</td>
-            </tr>
-          ) : (
-            os.itens.map(item => (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-500">{item.descricao}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-xs">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full  ${item.tipo === 'servico' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                    {item.tipo === 'servico' ? 'Serviço' : 'Peça'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-500">{item.quantidade}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-500">R$ {item.valor_unitario.toFixed(2).replace('.', ',')}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-right text-gray-500">R$ {(item.quantidade * item.valor_unitario).toFixed(2).replace('.', ',')}</td>
-                <td className="px-4 py-3 whitespace-nowrap text-right">
-                  <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700 transition duration-150">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+        <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-indigo-50">
+                <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Descrição</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Tipo</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Qtd</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Vl. Unitário</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total</th>
+                    <th className="px-4 py-3"></th>
+                </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+                {os.itens.length === 0 ? (
+                    <tr>
+                        <td colSpan={6} className="text-center py-4 text-gray-500 italic">Nenhum serviço ou peça adicionada.</td>
+                    </tr>
+                ) : (
+                    os.itens.map(item => (
+                        <tr key={item.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-500">{item.descricao}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-xs">
+                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full  ${item.tipo === 'servico' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                                    {item.tipo === 'servico' ? 'Serviço' : 'Peça'}
+                                </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-500">{item.quantidade}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-500">R$ {item.valor_unitario.toFixed(2).replace('.', ',')}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-right text-gray-500">R$ {(item.quantidade * item.valor_unitario).toFixed(2).replace('.', ',')}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                                <button onClick={() => handleRemoveItem(item.id)} className="text-red-500 hover:text-red-700 transition duration-150">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    ))
+                )}
+            </tbody>
+        </table>
     </div>
   );
 
@@ -209,77 +260,77 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
         {/* --- 1. DETALHES GERAIS DA OS / CLIENTE --- */}
         <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-indigo-500">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">Dados do Cliente e Veículo</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Placa do Veículo</label>
-              <input
-                type="text"
-                value={os.placa}
-                onChange={(e) => setOs(p => ({ ...p, placa: e.target.value.toUpperCase() }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 uppercase text-gray-500"
-                placeholder="Ex: ABC1234"
-                maxLength={7}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Nome do Cliente</label>
-              <input
-                type="text"
-                value={os.nomeCliente}
-                onChange={(e) => setOs(p => ({ ...p, nomeCliente: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                placeholder="João da Silva"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">CPF do Cliente (Opcional)</label>
-              <input
-                type="text"
-                value={os.cpfCliente}
-                onChange={(e) => setOs(p => ({ ...p, cpfCliente: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                placeholder="123.456.789-00"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Ano do Veículo</label>
-              <input
-                type="text"
-                value={os.ano}
-                onChange={(e) => setOs(p => ({ ...p, ano: e.target.value.toUpperCase() }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 uppercase text-gray-500"
-                placeholder="Ex: 2025"
-                maxLength={7}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Marca do Veículo</label>
-              <input
-                type="text"
-                value={os.marca}
-                onChange={(e) => setOs(p => ({ ...p, marca: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                placeholder="Ex: Volkswagen"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Modelo do Veículo</label>
-              <input
-                type="text"
-                value={os.modelo}
-                onChange={(e) => setOs(p => ({ ...p, modelo: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                placeholder="Ex: VW Gol"
-                required
-              />
-            </div>
-          </div>
-          
+          {/* ... (O restante do formulário de dados do cliente/veículo) ... */}
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             <div>
+               <label className="block text-sm font-medium text-gray-700">Placa do Veículo</label>
+               <input
+                 type="text"
+                 value={os.placa}
+                 onChange={(e) => setOs(p => ({ ...p, placa: e.target.value.toUpperCase() }))}
+                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 uppercase text-gray-500"
+                 placeholder="Ex: ABC1234"
+                 maxLength={7}
+                 required
+               />
+             </div>
+             <div>
+               <label className="block text-sm font-medium text-gray-700">Nome do Cliente</label>
+               <input
+                 type="text"
+                 value={os.nomeCliente}
+                 onChange={(e) => setOs(p => ({ ...p, nomeCliente: e.target.value }))}
+                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
+                 placeholder="João da Silva"
+                 required
+               />
+             </div>
+             <div>
+               <label className="block text-sm font-medium text-gray-700">CPF do Cliente (Opcional)</label>
+               <input
+                 type="text"
+                 value={os.cpfCliente}
+                 onChange={(e) => setOs(p => ({ ...p, cpfCliente: e.target.value }))}
+                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
+                 placeholder="123.456.789-00"
+                 required
+               />
+             </div>
+             <div>
+               <label className="block text-sm font-medium text-gray-700">Ano do Veículo</label>
+               <input
+                 type="text"
+                 value={os.ano}
+                 onChange={(e) => setOs(p => ({ ...p, ano: e.target.value.toUpperCase() }))}
+                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 uppercase text-gray-500"
+                 placeholder="Ex: 2025"
+                 maxLength={7}
+                 required
+               />
+             </div>
+             <div>
+               <label className="block text-sm font-medium text-gray-700">Marca do Veículo</label>
+               <input
+                 type="text"
+                 value={os.marca}
+                 onChange={(e) => setOs(p => ({ ...p, marca: e.target.value }))}
+                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
+                 placeholder="Ex: Volkswagen"
+                 required
+               />
+             </div>
+             <div>
+               <label className="block text-sm font-medium text-gray-700">Modelo do Veículo</label>
+               <input
+                 type="text"
+                 value={os.modelo}
+                 onChange={(e) => setOs(p => ({ ...p, modelo: e.target.value }))}
+                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
+                 placeholder="Ex: VW Gol"
+                 required
+               />
+             </div>
+           </div>
         </div>
 
         {/* --- 2. ADICIONAR ITENS (SERVIÇOS/PEÇAS) --- */}
@@ -299,22 +350,58 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
               </select>
             </div>
 
-            {/* Seleção do Item do Catálogo */}
+            {/* 3. INPUT COM DEBOUNCE E DATALIST (SUBSTITUI O SELECT) */}
             <div className="col-span-1 sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Item do Catálogo</label>
-              <select
-                value={addItemForm.itemSelecionadoId}
-                onChange={(e) => setAddItemForm(p => ({ ...p, itemSelecionadoId: e.target.value }))}
+              <label className="block text-sm font-medium text-gray-700">Item do Catálogo (Busca)</label>
+              
+              <input
+                type="text"
+                list="catalogo-datalist" // Conecta este input ao datalist abaixo
+                value={searchTerm}
+                // NO ONCHANGE: Atualiza o estado local e chama a função debounced
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchTerm(value);
+                  // Dispara a função de busca e filtro, que só executará após o debounce
+                  handleDebouncedSearch(value);
+                  
+                  // Se o usuário apagar, limpamos a seleção de ID
+                  if (!value) {
+                    setAddItemForm(p => ({ ...p, itemSelecionadoId: '' }));
+                  }
+                }}
+                // NO ONBLUR: Tenta garantir que um item real seja selecionado
+                onBlur={(e) => {
+                    // Busca pelo nome exato (ou ID) na lista completa para encontrar o ID real
+                    const itemEncontrado = itensCatalogoBase.find(
+                        item => item.name.toLowerCase() === e.target.value.toLowerCase() || item.id === e.target.value
+                    );
+                    
+                    if (itemEncontrado) {
+                         // Seta o ID real no formulário, que será usado no submit
+                         setAddItemForm((p:any) => ({ ...p, itemSelecionadoId: itemEncontrado.id }));
+                         setSearchTerm(itemEncontrado.name); // Garante que o nome final correto esteja no input
+                    } else {
+                         // Se digitou algo, mas não encontrou, talvez seja necessário feedback de erro
+                         setAddItemForm(p => ({ ...p, itemSelecionadoId: '' }));
+                    }
+                }}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-500"
+                placeholder="Digite para buscar..."
                 required
-              >
-                <option value="">Selecione um item...</option>
-                {itensCatalogo.map(item => (
-                  <option key={item.id} value={item.id}>{item.nome} ({item.codigo})</option>
+              />
+              
+              {/* O DATALIST: Exibe as opções filtradas em tempo real */}
+              <datalist id="catalogo-datalist">
+                {filteredItems.map(item => (
+                  <option key={item.id} value={item.name}>
+                    {/* Opcional: Adicionar o ID ou código como um texto auxiliar, mas o valor é o nome para aparecer no input */}
+                    {item.id} 
+                  </option>
                 ))}
-              </select>
+              </datalist>
             </div>
-
+            
             {/* Quantidade */}
             <div>
               <label className="block text-sm font-medium text-gray-700">Qtd</label>
@@ -353,7 +440,7 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
             </div>
           </form>
         </div>
-                
+        
         {/* --- 3. LISTA DE ITENS DA OS E TOTAIS --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">

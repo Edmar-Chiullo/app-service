@@ -39,6 +39,7 @@ export function OrderService({ service, toggle }: { service: OSListProps[] | any
   }, [service]);
 
   useEffect(() => {
+    console.log(osList)
     const calcs = calcOsTimePeriods(osList)
 
     setOsDay(new Intl.NumberFormat('pt-BR', {style: "currency", currency: "BRL"}).format(calcs.totalDiario))
@@ -326,7 +327,7 @@ function calcOsTimePeriods(osList:OSListProps[]) {
                   </td>
                 </tr>
               ) : ( 
-                filteredOsList.map((os: OSListProps) => ( 	 	 	 	 
+                filteredOsList.map((os: OSListProps) => ( 	 
                   <tr key={os.placa} className="hover:bg-gray-50 transition duration-100">
                     <td className="px-6 py-1 whitespace-nowrap text-sm font-medium text-gray-900">{os.itens[0]?.id.toUpperCase()}</td>
                     <td className="px-6 py-1 whitespace-nowrap text-sm font-semibold text-indigo-600">{os.placa}</td>
