@@ -1,89 +1,97 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { usePathname, useRouter, useSearchParams} from 'next/navigation';
-import { ItemOS, OrdemServico, OSListProps, Peca, Servico } from '../types/interface';
-import { MOCKED_CATALOG_PARTS, MOCKED_CATALOG_SERVICES } from '../data/data-service';
+import { usePathname, useRouter } from 'next/navigation';
+import { ComponentListProps, ItemOS, OrdemServico, ServiceListProps } from '../types/interface';
 import { ToastContainer, toast } from 'react-toastify';
-import { db }  from '../data/firebase-data';
+import { db }  from '../data/firebase-data';
 import { ref, set } from "firebase/database";
 import { formatDate } from '../utils/utils';
-import { getServices } from '../lib/server-function';
-
-interface CompState {
-  status: boolean,
-  component: string
-}
+import { useDebouncedCallback } from 'use-debounce';
 
 // --- Componente Principal ---
-export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (status: CompState)=> void, query: string}) {
-  
+export default function UpdateServiceApp({ 
+  service, 
+  serviceList, 
+  partsList 
+}: {
+    service: OrdemServico
+    serviceList: ServiceListProps[],
+    partsList: ComponentListProps[]
+  }) {
+
   // Estado para armazenar o Catálogo (será substituído pelo fetch do RTDB)
-  const [catalogoServicos, setCatalogoServicos] = useState<Servico[]>(MOCKED_CATALOG_SERVICES);
-  const [catalogoPecas, setCatalogoPecas] = useState<Peca[]>(MOCKED_CATALOG_PARTS);
-  const [ser, setSer] = useState<OrdemServico>();
-  
-  const [os, setOs] = useState<OrdemServico>({
-    placa: '',
-    ano: '',
-    marca: '',
-    modelo: '',
-    nomeCliente: '',
-    cpfCliente: '',
-    dataAbertura: Date.now(),
-    dataFechamento: 'none',
-    status: 'Aberta',
-    itens: [],
-  });
+  const [filteredItems, setFilteredItems] = useState<Array<ServiceListProps | ComponentListProps>>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const [os, setOs] = useState<OrdemServico>(service);
 
   const pathname = usePathname();
   const router = useRouter();
-
   
-  useEffect(() => {
-    // 1. Inicia a busca
-    getServices(query).then((resultArray: any) => {
-      // 2. O resultado da busca é 'resultArray'
-      
-      // Pega o primeiro item do array (se existir)
-      const serviceData = resultArray[0]; 
-
-      // Se o dado existe, define o estado 'os'
-      if (serviceData) {
-          setOs({
-              // Aqui, usamos serviceData, que é o objeto que você quer
-              placa: serviceData.placa,
-              ano: serviceData.ano,
-              marca: serviceData.marca,
-              modelo: serviceData.modelo,
-              nomeCliente: serviceData.nomeCliente,
-              cpfCliente: serviceData.cpfCliente,
-              dataAbertura: serviceData.dataAbertura,
-              
-              // Dados que vêm de resultArray (array) ou serviceData (objeto)
-              dataFechamento: 'none',
-              status: serviceData.status, // Correto: serviceData.status
-              itens: serviceData.itens,
-          });
-      }
-    })  
-  }, [query])
-      
-
   // Estado do formulário de adição de item
   const [addItemForm, setAddItemForm] = useState({
     tipoItem: 'servico' as 'servico' | 'peca',
-    itemSelecionadoId: '',
+    itemSelecionadoId: '', // ID do item selecionado no catálogo
     quantidade: 1,
     valorUnitario: 0,
   });
+
+  // Retorna a lista de itens do catálogo baseado no tipo selecionado (lista completa)
+  const itensCatalogoBase = useMemo(() => {
+    return addItemForm.tipoItem === 'servico' ? serviceList : partsList;
+  }, [service]);
+  
+
+  // Efeito para resetar/atualizar a lista filtrada sempre que o tipo de item mudar
+  useEffect(() => {
+    setFilteredItems(itensCatalogoBase);
+    setSearchTerm(''); // Limpa o termo de busca ao trocar o tipo
+    setAddItemForm(p => ({ ...p, itemSelecionadoId: '' })); // Limpa a seleção
+  }, [addItemForm.tipoItem, itensCatalogoBase]);
+
+
+  // 2. FUNÇÃO DE FILTRO COM DEBOUNCE (COM NORMALIZAÇÃO E LIMPEZA)
+  const handleDebouncedSearch = useDebouncedCallback((term: string) => {
+    // 1. Aplica Normalização e Limpeza no Termo de Busca
+    const termoNormalizado = term
+        .toLowerCase()
+        .normalize("NFD") // Decompõe os caracteres (ex: 'á' vira 'a' + acento)
+        .replace(/[\u0300-\u036f]/g, "") // Remove os acentos e diacríticos
+        .replace(/[^\w\s]/g, ""); // Remove pontuação e outros caracteres não alfanuméricos
+
+    if (!termoNormalizado) {
+        setFilteredItems(itensCatalogoBase);
+        return;
+    }
+    
+    // Filtragem em múltiplos campos: nome e id
+    const resultados = itensCatalogoBase.filter(item => {
+        // 2. Aplica Normalização e Limpeza no Nome do Item
+        const nomeNormalizado = item.name
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^\w\s]/g, "");
+
+        // O ID geralmente não tem acentos, mas limpamos pontuação para consistência
+        const idNormalizado = String(item.id)
+            .toLowerCase()
+            .replace(/[^\w\s]/g, "");
+
+        // Verifica se o termo está contido no nome OU no ID
+        return nomeNormalizado.includes(termoNormalizado) || idNormalizado.includes(termoNormalizado);
+    });
+
+    setFilteredItems(resultados);
+  }, 100); // 300ms de atraso é um bom valor
+
 
   // Cálculo dos totais
   const { totalServicos, totalPecas, totalGeral } = useMemo(() => {
     let totalServicos = 0;
     let totalPecas = 0;
-
-    os.itens.forEach(item => {
+    os.itens.forEach((item:any) => {
       const totalItem = item.quantidade * item.valor_unitario;
       if (item.tipo === 'servico') {
         totalServicos += totalItem;
@@ -103,19 +111,37 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
   const handleAddItemToOS = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const catalogoAtual = addItemForm.tipoItem === 'servico' ? catalogoServicos : catalogoPecas;
-    const itemEncontrado = catalogoAtual.find(item => item.id === addItemForm.itemSelecionadoId);
+    // Passo 1: Normalizar o termo de busca final para encontrar a correspondência
+    const termoBuscaNormalizado = searchTerm
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s]/g, "");
 
-    if (!itemEncontrado || addItemForm.quantidade <= 0 || addItemForm.valorUnitario <= 0) {
-      toast.error('Selecione um item válido, quantidade e valor unitário maiores que zero.',
-        { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
-      );
-      return;
+    // Passo 2: Encontrar o item no catálogo COMPLETO usando o nome normalizado
+    const itemEncontradoPeloNome = itensCatalogoBase.find(item => {
+        const nomeItemNormalizado = item.name
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^\w\s]/g, "");
+        
+        // Verifica a correspondência exata
+        return nomeItemNormalizado === termoBuscaNormalizado;
+    });
+
+    // Se o usuário digitou, mas não selecionou um item válido (ex: só parte do nome)
+    if (!itemEncontradoPeloNome || addItemForm.quantidade <= 0 || addItemForm.valorUnitario <= 0) {
+        toast.error('Selecione um item válido do catálogo, e certifique-se de que a quantidade e o valor unitário são maiores que zero.',
+            { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
+        );
+        return;
     }
 
+    // Usamos as informações do item encontrado
     const novoItemOS: ItemOS = {
       id: Math.random().toString(36).substring(2, 9), // ID único para o item na OS
-      descricao: itemEncontrado.nome,
+      descricao: itemEncontradoPeloNome.name,
       tipo: addItemForm.tipoItem,
       quantidade: addItemForm.quantidade,
       valor_unitario: addItemForm.valorUnitario,
@@ -133,18 +159,33 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
       quantidade: 1,
       valorUnitario: 0,
     });
+
+    setSearchTerm(''); // Limpa o termo de busca após adicionar
+    setFilteredItems(itensCatalogoBase); // Restaura a lista completa
   };
 
   // Função para remover item da OS
   const handleRemoveItem = (id: string) => {
     setOs(prevOs => ({
       ...prevOs,
-      itens: prevOs.itens.filter(item => item.id !== id),
+      itens: prevOs.itens.filter((item:any) => item.id !== id),
     }));
   };
 
   // Função para salvar a OS (Placeholder para conexão RTDB)
   const handleSaveOS = () => {
+ 
+    if (os.placa && os.nomeCliente && os.itens.length > 0) { // Adicionado check de itens
+      toast.success(`Ordem de Serviço (para o veículo: ${os.placa}) salva com sucesso!`,
+        { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
+      );
+    } else {
+      toast.error('Preencha a Placa, Nome do Cliente e adicione pelo menos 1 item antes de salvar.',
+        { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
+      );
+    }
+
+   // ... (lógica de salvar)
     set(ref(db, `orderService/${formatDate(os.dataAbertura as number).replace(/\//g, '')}/${os.placa}`), {
       placa: os.placa,
       ano: os.ano,
@@ -157,16 +198,6 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
       status: os.status,
       itens: os.itens
     });
-
-    if (os.placa && os.nomeCliente) {
-      toast.success(`Ordem de Serviço (para o veículo: ${os.placa}) salva com sucesso!`,
-        { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
-      );
-    } else {
-      toast.error('Preencha a Placa, Nome do Cliente e adicione pelo menos 1 item antes de salvar.',
-        { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
-      );
-    }
 
     // Resetar a OS após salvar
     setOs({
@@ -182,32 +213,24 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
       itens: [],
     });
     
-    toggle({component: 'serView', status: true})
-    router.replace(`${pathname}`)
+    router.push(`/cadastro`)
   };
 
-  // Retorna a lista de itens do catálogo baseado no tipo selecionado
-  const itensCatalogo = addItemForm.tipoItem === 'servico' ? catalogoServicos : catalogoPecas;
-
-  // Renderiza a tabela de itens na OS
+  // Renderiza a tabela de itens na OS (CORRIGIDO CONTRA ERRO DE HYDRATION)
   const renderOsItemsTable = () => (
     <div className="overflow-x-auto shadow-md rounded-xl">
       <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-indigo-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Descrição</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Tipo</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Qtd</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Vl. Unitário</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total</th>
-            <th className="px-4 py-3"></th>
-          </tr>
-        </thead>
+        <thead className="bg-indigo-50"><tr>
+          <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Descrição</th>
+          <th className="px-4 py-3 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Tipo</th>
+          <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Qtd</th>
+          <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Vl. Unitário</th>
+          <th className="px-4 py-3 text-right text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total</th>
+          <th className="px-4 py-3"></th>
+        </tr></thead>
         <tbody className="bg-white divide-y divide-gray-100">
           {os.itens.length === 0 ? (
-            <tr>
-              <td colSpan={6} className="text-center py-4 text-gray-500 italic">Nenhum serviço ou peça adicionada.</td>
-            </tr>
+            <tr><td colSpan={6} className="text-center py-4 text-gray-500 italic">Nenhum serviço ou peça adicionada.</td></tr>
           ) : (
             os.itens.map(item => (
               <tr key={item.id} className="hover:bg-gray-50">
@@ -245,7 +268,7 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
 
       <main className="space-y-8">
         {/* --- 1. DETALHES GERAIS DA OS / CLIENTE --- */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-indigo-500">
+          <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-indigo-500">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">Dados do Cliente e Veículo</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
@@ -316,9 +339,9 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
                 required
               />
             </div>
-          </div>       
+          </div>       
         </div>
-
+        
         {/* --- 2. ADICIONAR ITENS (SERVIÇOS/PEÇAS) --- */}
         <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-blue-500">
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">Adicionar Itens à OS</h2>
@@ -335,22 +358,35 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
                 <option value="peca">Peça</option>
               </select>
             </div>
-
-            {/* Seleção do Item do Catálogo */}
+            
+            {/* INPUT COM DEBOUNCE E DATALIST */}
             <div className="col-span-1 sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Item do Catálogo</label>
-              <select
-                value={addItemForm.itemSelecionadoId}
-                onChange={(e) => setAddItemForm(p => ({ ...p, itemSelecionadoId: e.target.value }))}
+              <label className="block text-sm font-medium text-gray-700">Item do Catálogo (Busca)</label>
+              <input
+                type="text"
+                list="catalogo-datalist" // Conecta este input ao datalist
+                value={searchTerm}
+                // NO ONCHANGE: Atualiza o estado local e chama a função debounced
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSearchTerm(value);
+                  handleDebouncedSearch(value); // Dispara o debounce
+                }}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-500"
+                placeholder="Digite para buscar..."
                 required
-              >
-                <option value="">Selecione um item...</option>
-                {itensCatalogo.map(item => (
-                  <option key={item.id} value={item.id}>{item.nome} ({item.codigo})</option>
+              />
+              
+              {/* O DATALIST: Exibe as opções filtradas em tempo real */}
+              <datalist id="catalogo-datalist">
+                {filteredItems.map(item => (
+                  <option key={item.id} value={item.name}>
+                    {item.id} 
+                  </option>
                 ))}
-              </select>
+              </datalist>
             </div>
+            
 
             {/* Quantidade */}
             <div>
@@ -390,7 +426,7 @@ export default function OrderUpdateServiceApp({ toggle, query }: {toggle: (statu
             </div>
           </form>
         </div>
-                
+        
         {/* --- 3. LISTA DE ITENS DA OS E TOTAIS --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">

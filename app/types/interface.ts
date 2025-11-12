@@ -49,6 +49,9 @@ export interface OSListProps {
   }>;
   nomeCliente: string;
   placa: string;
+  ano?: string;
+  marca?: string;
+  modelo?: string;
   status: 'Aberta' | 'Finalizada' | 'Cancelada';
   service: string; // Isso parece ser o ID/Path do serviço ou o conjunto de dados completo
 }

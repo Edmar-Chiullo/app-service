@@ -3,16 +3,15 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { FilterStatus, OsItem, OSListProps } from "../types/interface";
 import { useEffect, useMemo, useState } from "react";
-import { calculateTotal, formatDate, rangeWeek } from "../utils/utils";
-import { DataSnapshot, onChildChanged, ref, update } from "firebase/database";
+import { calculateTotal, formatDate } from "../utils/utils";
+import { ref, update } from "firebase/database";
 import { db } from "../data/firebase-data";
+import Link from "next/link";
+import { useDebouncedCallback } from "use-debounce";
 
-interface CompState {
-  status: boolean,
-  component: string
-}
 
-export function OrderService({ service, toggle }: { service: OSListProps[] | any[], toggle: (status: CompState)=> void }) {
+
+export function OrderService({ service }: { service: OSListProps[] }) {
   const [osList, setOsList] = useState<OSListProps[]>(service || []);
   const [osDay, setOsDay] = useState<string>('0')
   const [osWeek, setOsWeek] = useState<string>('0')
@@ -39,7 +38,6 @@ export function OrderService({ service, toggle }: { service: OSListProps[] | any
   }, [service]);
 
   useEffect(() => {
-    console.log(osList)
     const calcs = calcOsTimePeriods(osList)
 
     setOsDay(new Intl.NumberFormat('pt-BR', {style: "currency", currency: "BRL"}).format(calcs.totalDiario))
@@ -68,57 +66,20 @@ export function OrderService({ service, toggle }: { service: OSListProps[] | any
   }, [osList, currentQuery, currentStatus]);
   
   useEffect(() => {
-    // Verifica se 'service' é um array e se tem dados para evitar erros de tipagem/lógica.
     if (!Array.isArray(service) || service.length === 0) return;
 
-    // Assumindo que a data é a do primeiro item para montar o path de hoje.
-    // É mais seguro usar uma data fixa ou o path base se for buscar todos os dados.
-    const initialDate = service[0]?.dataAbertura || Date.now();
-    const formattedDate = formatDate(initialDate).replace(/\//g, '');
-    
-    // Supondo que você está ouvindo todas as alterações de OSs de um determinado dia.
-    const dbPath = `orderService/${formattedDate}/`;
-    const dbRef = ref(db, dbPath);
+  }, [service]);
 
-    const unsubscribeChange = onChildChanged(dbRef, (snapshot: DataSnapshot) => {
-        if (snapshot.exists()) {
-            const value: OsItem = snapshot.val();
-            // A chave do Firebase é o ID, que você parece estar tratando como 'placa' no seu código.
-            // Para maior segurança, o ID (key) do snapshot deve ser usado, mas mantive a lógica de 'placa' para a correção do estado.
-            
-            if (value && value.placa) {
-                setOsList((prev) => {
-                  const updatedList = prev.map((item) => {
-                      // Usa a placa como chave de atualização
-                      if (item.placa === value.placa) {
-                          // Retorna o valor atualizado do Firebase
-                          return value as OSListProps; 
-                      }
-                      return item;
-                  });
-                  return updatedList;
-                });
-            }
-        }
-    });
-
-    const rangeDays = rangeWeek() 
-    return () => {
-        unsubscribeChange();
-    };
-
-  }, [service]); // Depende da prop 'service' para inicializar o listener
-  
-  const handleSearch = (term: string) => {
+  const handleSearch = useDebouncedCallback((term) => {
     const params = new URLSearchParams(searchParams);
-    params.set('page', '1'); // Volta para a primeira página ao buscar
+    params.set('page', '1');
     if (term) {
       params.set('query', term);
     } else {
       params.delete('query');
     }
     replace(`${pathname}?${params.toString()}`);
-  }
+  }, 200)
   
   const getStatusStyleLocal = (status: 'Aberta' | 'Finalizada' | 'Cancelada') => {
     switch (status) {
@@ -142,20 +103,6 @@ export function OrderService({ service, toggle }: { service: OSListProps[] | any
       params.delete('status');
     }
     replace(`${pathname}?${params.toString()}`);
-  }
-
-  const handleStatusDetail = (status: string) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('page', '1');
-    if (status && status !== 'Todos') {
-      params.set('status', status); 
-    } else {
-      params.delete('status');
-    }
-    replace(`${pathname}?${params.toString()}`);
-
-    toggle({component: 'upService', status: true})
-
   }
 
   const updateStatus = async ({ status, placa }: { status: string, placa: string }) => {
@@ -191,10 +138,6 @@ export function OrderService({ service, toggle }: { service: OSListProps[] | any
     }
   }
 
-  function getCreateService() {
-    toggle({component: 'creService', status: true})
-  }
-
 function calcOsTimePeriods(osList:OSListProps[]) {
     const dataHoje = new Date();
     dataHoje.setHours(0, 0, 0, 0); // Zera o tempo para comparação de dia (Hoje)
@@ -212,33 +155,33 @@ function calcOsTimePeriods(osList:OSListProps[]) {
     let totalMensal = 0;
 
     osList.forEach((os:any) => {
-        // 1. Filtragem de base: Deve ter data e status 'Finalizada'
-        if (os.dataAbertura && os.status === 'Finalizada') {
-            const dayDataAbertura = new Date(os.dataAbertura);
-            dayDataAbertura.setHours(0, 0, 0, 0); // Zera o tempo para comparação
+      // 1. Filtragem de base: Deve ter data e status 'Finalizada'
+      if (os.dataAbertura && os.status === 'Finalizada') {
+          const dayDataAbertura = new Date(os.dataAbertura);
+          dayDataAbertura.setHours(0, 0, 0, 0); // Zera o tempo para comparação
 
-            // 2. Cálculo do valor total dos itens desta OS
-            const valorOs = os.itens.reduce((sum:number, item:OsItem) => {
-                // Soma valor_unitario (usa 0 se for undefined/null)
-                return sum + (item.valor_unitario || 0); 
-            }, 0);
+          // 2. Cálculo do valor total dos itens desta OS
+          const valorOs = os.itens.reduce((sum:number, item:OsItem) => {
+              // Soma valor_unitario (usa 0 se for undefined/null)
+              return sum + (item.valor_unitario || 0); 
+          }, 0);
 
-            // --- Lógica Diária ---
-            // Compara se a dataAbertura é exatamente igual a dataHoje (Dia/Mês/Ano)
-            if (dayDataAbertura.getTime() === dataHoje.getTime()) {
-                totalDiario += valorOs;
-            }
+          // --- Lógica Diária ---
+          // Compara se a dataAbertura é exatamente igual a dataHoje (Dia/Mês/Ano)
+          if (dayDataAbertura.getTime() === dataHoje.getTime()) {
+              totalDiario += valorOs;
+          }
 
-            // --- Lógica Semanal ---
-            // Verifica se a dataAbertura está entre "7 dias atrás" e "hoje" (inclusive)
-            if (dayDataAbertura >= dataUmaSemanaAtras && dayDataAbertura <= dataHoje) {
-                totalSemanal += valorOs;
-            }
-            
-            if (dayDataAbertura >= dataInicioMes && dayDataAbertura <= dataHoje) {
-                totalMensal += valorOs;
-            }
-        }
+          // --- Lógica Semanal ---
+          // Verifica se a dataAbertura está entre "7 dias atrás" e "hoje" (inclusive)
+          if (dayDataAbertura >= dataUmaSemanaAtras && dayDataAbertura <= dataHoje) {
+              totalSemanal += valorOs;
+          }
+          
+          if (dayDataAbertura >= dataInicioMes && dayDataAbertura <= dataHoje) {
+              totalMensal += valorOs;
+          }
+      }
     });
 
     return {
@@ -255,13 +198,13 @@ function calcOsTimePeriods(osList:OSListProps[]) {
          <h1 className="text-3xl font-extrabold text-indigo-700">
            Ordens de Serviço
          </h1>
-         <button
-           onClick={() => getCreateService()}
+         <Link
+           href={'/cadastro/create-service'}
            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-150 shadow-md flex items-center gap-2"
          >
            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" /></svg>
            Nova OS
-         </button>
+         </Link>
       </header>
       
       {/* Filtros e Busca */}
@@ -284,10 +227,10 @@ function calcOsTimePeriods(osList:OSListProps[]) {
           <label className="block text-sm font-medium text-gray-700">Buscar por Placa ou Cliente</label>
           <input
             type="text"
-            defaultValue={currentQuery}
             onChange={(e) => handleSearch(e.target.value)}
+            defaultValue={searchParams.get('query')?.toString()}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-            placeholder="Ex: ABC1234 ou Ana Silva"
+            placeholder="Ex: ABC1234"
           />
         </div>
         <div>
@@ -312,6 +255,7 @@ function calcOsTimePeriods(osList:OSListProps[]) {
             <tr>
               <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">OS ID</th>
               <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Placa</th>
+              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Carro</th>
               <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Cliente</th>
               <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Data Abertura</th>
               <th className="px-6 py-2 text-center text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total</th>
@@ -331,6 +275,7 @@ function calcOsTimePeriods(osList:OSListProps[]) {
                   <tr key={os.placa} className="hover:bg-gray-50 transition duration-100">
                     <td className="px-6 py-1 whitespace-nowrap text-sm font-medium text-gray-900">{os.itens[0]?.id.toUpperCase()}</td>
                     <td className="px-6 py-1 whitespace-nowrap text-sm font-semibold text-indigo-600">{os.placa}</td>
+                    <td className="px-6 py-1 whitespace-nowrap text-sm text-gray-800">{os.modelo}</td>
                     <td className="px-6 py-1 whitespace-nowrap text-sm text-gray-800">{os.nomeCliente}</td>
                     <td className="px-6 py-1 whitespace-nowrap text-sm text-gray-800">{formatDate(os.dataAbertura)}</td>
                     <td className="px-6 py-1 whitespace-nowrap text-sm font-extrabold text-right text-gray-600">{calculateTotal(os.itens)}</td>
@@ -348,13 +293,13 @@ function calcOsTimePeriods(osList:OSListProps[]) {
                       </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                            onClick={() => handleStatusDetail(os.itens[0]?.id)}
-                            className="text-indigo-600 hover:text-indigo-900 transition duration-150 font-semibold hover:cursor-pointer"
-                        >
+                        <Link
+                          href={`/cadastro/${os.placa}/update-service`}
+                          className="text-indigo-600 hover:text-indigo-900 transition duration-150 font-semibold hover:cursor-pointer"
+                          >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                            Ver Detalhes
-                        </button>
+                          Ver Detalhes
+                        </Link>
                     </td>
                   </tr>
                 ))

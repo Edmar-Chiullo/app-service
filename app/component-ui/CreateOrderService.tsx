@@ -1,34 +1,28 @@
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { usePathname, useRouter, useSearchParams} from 'next/navigation';
+import { useRouter } from 'next/navigation';
 // Ajuste os imports de interface conforme necessário, mas mantendo a estrutura
 import { ComponentListProps, ItemOS, OrdemServico, ServiceListProps } from '../types/interface';
-import { COMPONENT_LIST, SERVICE_LIST } from '../data/data-service';
 import { ToastContainer, toast } from 'react-toastify';
 import { db } from '../data/firebase-data'; // Assumindo que este import está correto
 import { ref, set } from "firebase/database"; // Assumindo que este import está correto
 import { formatDate } from '../utils/utils'; // Assumindo que este import está correto
 import { useDebouncedCallback } from 'use-debounce';
 
-interface CompState {
-  status: boolean,
-  component: string
-}
-
 // --- Componente Principal ---
-export default function OrderCreateService({ toggle }: {toggle: (status: CompState)=> void}) {
+export default function CreateService({ 
+  serviceList, 
+  partsList 
+}: { 
+  serviceList: ServiceListProps[], 
+  partsList: ComponentListProps[]
+}) {
   
   // Catálogo (mocked ou vindo de fetch)
-  const [catalogoServicos, setCatalogoServicos] = useState<ServiceListProps[]>(SERVICE_LIST);
-  const [catalogoPecas, setCatalogoPecas] = useState<ComponentListProps[]>(COMPONENT_LIST);
 
   // 1. ESTADOS NOVOS PARA BUSCA E FILTRAGEM
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredItems, setFilteredItems] = useState<Array<ServiceListProps | ComponentListProps>>([]);
-  
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const { replace } = useRouter();
 
   const [os, setOs] = useState<OrdemServico>({
     placa: '',
@@ -43,6 +37,8 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
     itens: [],
   });
 
+  const router = useRouter()
+
   const [addItemForm, setAddItemForm] = useState({
     tipoItem: 'servico' as 'servico' | 'peca',
     itemSelecionadoId: '', // ID do item selecionado no catálogo
@@ -52,8 +48,10 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
 
   // Retorna a lista de itens do catálogo baseado no tipo selecionado (lista completa)
   const itensCatalogoBase = useMemo(() => {
-    return addItemForm.tipoItem === 'servico' ? catalogoServicos : catalogoPecas;
-  }, [addItemForm.tipoItem, catalogoPecas, catalogoServicos]);
+    return addItemForm.tipoItem === 'servico' ? serviceList :   partsList 
+;
+  }, [addItemForm.tipoItem,   partsList 
+, serviceList]);
   
   // Efeito para resetar/atualizar a lista filtrada sempre que o tipo de item mudar
   useEffect(() => {
@@ -82,7 +80,7 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
     });
 
     setFilteredItems(resultados);
-  }, 300); // 300ms de atraso
+  }, 100); // 300ms de atraso
 
   // Lógica de totais permanece a mesma
   const { totalServicos, totalPecas, totalGeral } = useMemo(() => {
@@ -109,7 +107,8 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
   const handleAddItemToOS = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const catalogoAtual = addItemForm.tipoItem === 'servico' ? catalogoServicos : catalogoPecas;
+    const catalogoAtual = addItemForm.tipoItem === 'servico' ? serviceList :   partsList 
+;
 
     // Busca o item no catálogo completo pelo ID armazenado no estado
     const itemEncontrado = catalogoAtual.find(item => item.id === addItemForm.itemSelecionadoId);
@@ -153,19 +152,6 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
   };
 
   const handleSaveOS = () => {
-    // ... lógica de salvar no DB
-    set(ref(db, `orderService/${formatDate(os.dataAbertura as number).replace(/\//g, '')}/${os.placa}`), {
-      placa: os.placa,
-      ano: os.ano,
-      marca: os.marca,
-      modelo: os.modelo,
-      nomeCliente: os.nomeCliente,
-      cpfCliente: os.cpfCliente,
-      dataAbertura: os.dataAbertura,
-      status: os.status,
-      itens: os.itens
-    });
-
     if (os.placa && os.nomeCliente && os.itens.length > 0) { // Adicionada validação de itens
       toast.success(`Ordem de Serviço (para o veículo: ${os.placa}) salva com sucesso!`,
         { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
@@ -176,6 +162,20 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
       );
     }
 
+      // ... lógica de salvar no DB
+    set(ref(db, `orderService/${formatDate(os.dataAbertura as number).replace(/\//g, '')}/${os.placa}`), {
+      placa: os.placa,
+      ano: os.ano,
+      marca: os.marca,
+      modelo: os.modelo,
+      nomeCliente: os.nomeCliente,
+      cpfCliente: os.cpfCliente,
+      dataAbertura: os.dataAbertura,
+      dataFechamento: 'none',
+      status: os.status,
+      itens: os.itens
+    });
+    
     // Resetar a OS após salvar
     setOs({
       placa: '',
@@ -190,16 +190,13 @@ export default function OrderCreateService({ toggle }: {toggle: (status: CompSta
       itens: [],
     });
 
-    toggle({component: 'serView', status: true})
+    router.push('/cadastro')
   };
 
   // Funções de navegação da URL (não utilizadas na lógica de filtragem local, mas mantidas)
   // Removi a implementação original pois ela usava a URLSearchParams para filtragem, 
   // o que não é o ideal para um ComboBox.
   // Mantive o useDebouncedCallback, mas vazio, apenas para fins de referência.
-  const handleSearch = useDebouncedCallback((term) => { 
-    // Esta função não é mais necessária, pois a lógica está em handleDebouncedSearch
-  }, 300);
 
   // Renderiza a tabela de itens na OS (função auxiliar)
   const renderOsItemsTable = () => (
