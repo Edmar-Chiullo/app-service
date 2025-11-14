@@ -50,7 +50,7 @@ export default function CreateService({
   const itensCatalogoBase = useMemo(() => {
     return addItemForm.tipoItem === 'servico' ? serviceList :   partsList 
 ;
-  }, [addItemForm.tipoItem,   partsList 
+  }, [addItemForm.tipoItem,  partsList 
 , serviceList]);
   
   // Efeito para resetar/atualizar a lista filtrada sempre que o tipo de item mudar
@@ -473,7 +473,6 @@ export default function CreateService({
               >
                 Salvar Ordem de Serviço
               </button>
-              <p className="text-xs text-center text-gray-400 mt-2">Pronto para conectar ao seu RTDB.</p>
             </div>
           </div>
         </div>

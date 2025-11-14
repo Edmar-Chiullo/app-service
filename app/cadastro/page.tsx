@@ -1,6 +1,6 @@
 import OSList from "../component-ui/Services";
 import { SERVICE_LIST } from "../data/data-service";
-import { getServices, getServicesByID } from "../lib/server-function";
+import { getServicesByID } from "../lib/server-function";
 import { ServiceListProps } from "../types/interface";
 
 export default async function CreateServicePage(props: {searchParams?: Promise<{query?: string; page?: string;}>}) {
@@ -10,11 +10,13 @@ export default async function CreateServicePage(props: {searchParams?: Promise<{
     const termoLower = query.toLowerCase();
     const LISTSERVICE:ServiceListProps[] = SERVICE_LIST
     
+
     const resultados = LISTSERVICE.filter(item => {
         const nomeLower = item.name.toLowerCase();
         const idLower = item.id.toString().toUpperCase();
         return nomeLower.includes(termoLower) || idLower.includes(termoLower);
     });
+    
     const services:any = await getServicesByID(query)
 
     return (

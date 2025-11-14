@@ -9,8 +9,6 @@ import { db } from "../data/firebase-data";
 import Link from "next/link";
 import { useDebouncedCallback } from "use-debounce";
 
-
-
 export function OrderService({ service }: { service: OSListProps[] }) {
   const [osList, setOsList] = useState<OSListProps[]>(service || []);
   const [osDay, setOsDay] = useState<string>('0')
@@ -138,58 +136,58 @@ export function OrderService({ service }: { service: OSListProps[] }) {
     }
   }
 
-function calcOsTimePeriods(osList:OSListProps[]) {
-    const dataHoje = new Date();
-    dataHoje.setHours(0, 0, 0, 0); // Zera o tempo para comparação de dia (Hoje)
+  function calcOsTimePeriods(osList:OSListProps[]) {
+      const dataHoje = new Date();
+      dataHoje.setHours(0, 0, 0, 0); // Zera o tempo para comparação de dia (Hoje)
 
-    // Data de 7 dias atrás (para cálculo semanal)
-    const dataUmaSemanaAtras = new Date(dataHoje);
-    dataUmaSemanaAtras.setDate(dataHoje.getDate() - 7); 
+      // Data de 7 dias atrás (para cálculo semanal)
+      const dataUmaSemanaAtras = new Date(dataHoje);
+      dataUmaSemanaAtras.setDate(dataHoje.getDate() - 7); 
 
-    // Data do primeiro dia do mês atual (para cálculo mensal)
-    const dataInicioMes = new Date(dataHoje.getFullYear(), dataHoje.getMonth(), 1);
-    dataInicioMes.setHours(0, 0, 0, 0);
+      // Data do primeiro dia do mês atual (para cálculo mensal)
+      const dataInicioMes = new Date(dataHoje.getFullYear(), dataHoje.getMonth(), 1);
+      dataInicioMes.setHours(0, 0, 0, 0);
 
-    let totalDiario = 0;
-    let totalSemanal = 0;
-    let totalMensal = 0;
+      let totalDiario = 0;
+      let totalSemanal = 0;
+      let totalMensal = 0;
 
-    osList.forEach((os:any) => {
-      // 1. Filtragem de base: Deve ter data e status 'Finalizada'
-      if (os.dataAbertura && os.status === 'Finalizada') {
-          const dayDataAbertura = new Date(os.dataAbertura);
-          dayDataAbertura.setHours(0, 0, 0, 0); // Zera o tempo para comparação
+      osList.forEach((os:any) => {
+        // 1. Filtragem de base: Deve ter data e status 'Finalizada'
+        if (os.dataAbertura && os.status === 'Finalizada') {
+            const dayDataAbertura = new Date(os.dataAbertura);
+            dayDataAbertura.setHours(0, 0, 0, 0); // Zera o tempo para comparação
 
-          // 2. Cálculo do valor total dos itens desta OS
-          const valorOs = os.itens.reduce((sum:number, item:OsItem) => {
-              // Soma valor_unitario (usa 0 se for undefined/null)
-              return sum + (item.valor_unitario || 0); 
-          }, 0);
+            // 2. Cálculo do valor total dos itens desta OS
+            const valorOs = os.itens.reduce((sum:number, item:OsItem) => {
+                // Soma valor_unitario (usa 0 se for undefined/null)
+                return sum + (item.valor_unitario || 0); 
+            }, 0);
 
-          // --- Lógica Diária ---
-          // Compara se a dataAbertura é exatamente igual a dataHoje (Dia/Mês/Ano)
-          if (dayDataAbertura.getTime() === dataHoje.getTime()) {
-              totalDiario += valorOs;
-          }
+            // --- Lógica Diária ---
+            // Compara se a dataAbertura é exatamente igual a dataHoje (Dia/Mês/Ano)
+            if (dayDataAbertura.getTime() === dataHoje.getTime()) {
+                totalDiario += valorOs;
+            }
 
-          // --- Lógica Semanal ---
-          // Verifica se a dataAbertura está entre "7 dias atrás" e "hoje" (inclusive)
-          if (dayDataAbertura >= dataUmaSemanaAtras && dayDataAbertura <= dataHoje) {
-              totalSemanal += valorOs;
-          }
-          
-          if (dayDataAbertura >= dataInicioMes && dayDataAbertura <= dataHoje) {
-              totalMensal += valorOs;
-          }
-      }
-    });
+            // --- Lógica Semanal ---
+            // Verifica se a dataAbertura está entre "7 dias atrás" e "hoje" (inclusive)
+            if (dayDataAbertura >= dataUmaSemanaAtras && dayDataAbertura <= dataHoje) {
+                totalSemanal += valorOs;
+            }
+            
+            if (dayDataAbertura >= dataInicioMes && dayDataAbertura <= dataHoje) {
+                totalMensal += valorOs;
+            }
+        }
+      });
 
-    return {
-        totalDiario,
-        totalSemanal,
-        totalMensal
-    };
-}
+      return {
+          totalDiario,
+          totalSemanal,
+          totalMensal
+      };
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans">
@@ -206,22 +204,25 @@ function calcOsTimePeriods(osList:OSListProps[]) {
            Nova OS
          </Link>
       </header>
-      
-      {/* Filtros e Busca */}
-       <div className="grid grid-rows-3 grid-cols-1 items-center md:grid-cols-3 md:grid-rows-1 justify-items-center gap-4 bg-white px-6 py-2 rounded-xl shadow-lg mb-6">
-        <div className="col.start-1 flex flex-col gap-2 w-96 h-20 border-r text-center text-gray-500 border-gray-300">
-          <h3>Total de serviço (dia):</h3>
-          <h1 className="text-2xl text-gray-600 font-bold">{`${osDay}`}</h1>
-        </div>
-        <div className="col.start-2 flex flex-col gap-2 w-70 h-20 text-center text-gray-500">
-          <h3>Total de serviço (semana):</h3>
-          <h1 className="text-2xl text-gray-600 font-bold">{`${osWeek}`}</h1>
-        </div>
-        <div className="col.start-3 flex flex-col gap-2 w-96 h-20 border-l text-center text-gray-500 border-gray-300">
-          <h3>Total de serviço (mês):</h3>
-          <h1 className="text-2xl text-gray-600 font-bold">{`${osMonth}`}</h1>
-        </div>
+      <div className="overflow-x-auto shadow-xl rounded-xl mb-6 h-36 md:h-36">
+        <table className="min-w-full h-full rounded-xl shadow-lg p-10">
+          <thead className="h-3 bg-white">
+            <tr className="divide-x-2 divide-gray-200/50">
+              <th className="px-6 py-2 text-lg font-semibold text-center text-indigo-500 uppercase tracking-wider">Total de serviço (dia)</th>
+              <th className="px-6 py-2 text-lg font-semibold text-center text-indigo-500 uppercase tracking-wider">Total de serviço (semana)</th>
+              <th className="px-6 py-2 text-lg font-semibold text-center text-indigo-500 uppercase tracking-wider">Total de serviço (mês)</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white">
+            <tr className="hover:bg-gray-50 divide-x-2 divide-gray-200/50 transition duration-100">
+              <td className="px-6 py-1 whitespace-nowrap text-4xl text-center text-gray-600 font-bold tracking-wider">{osDay}</td>
+              <td className="px-6 py-1 whitespace-nowrap text-4xl text-center text-gray-600 font-bold">{osWeek}</td>
+              <td className="px-6 py-1 whitespace-nowrap text-4xl text-center text-gray-600 font-bold">{osMonth}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      {/* Filtros e Busca */}
       <div className="bg-white p-6 rounded-xl shadow-lg mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700">Buscar por Placa ou Cliente</label>

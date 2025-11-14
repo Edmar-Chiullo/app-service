@@ -40,7 +40,8 @@ export default function UpdateServiceApp({
   // Retorna a lista de itens do catálogo baseado no tipo selecionado (lista completa)
   const itensCatalogoBase = useMemo(() => {
     return addItemForm.tipoItem === 'servico' ? serviceList : partsList;
-  }, [service]);
+  }, [addItemForm.tipoItem,  partsList 
+, serviceList]);
   
 
   // Efeito para resetar/atualizar a lista filtrada sempre que o tipo de item mudar
@@ -462,7 +463,6 @@ export default function UpdateServiceApp({
               >
                 Salvar Ordem de Serviço
               </button>
-              <p className="text-xs text-center text-gray-400 mt-2">Pronto para conectar ao seu RTDB.</p>
             </div>
           </div>
         </div>

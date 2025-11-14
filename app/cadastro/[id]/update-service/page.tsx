@@ -11,13 +11,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     const LISTSERVICE:ServiceListProps[] = SERVICE_LIST
     const LISTPARTS:ComponentListProps[] = COMPONENT_LIST
 
+    // Busca serviço para auto preencher campos relacionados ao usuário. 
     const service:any = await getServicesByID(serviceID)
-    console.log(service)
     
     return (
         <div>
             <UpdateServiceApp service={service} serviceList={LISTSERVICE} partsList={LISTPARTS} />
-             
         </div>
     );
 }

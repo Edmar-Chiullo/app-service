@@ -12,16 +12,10 @@ export default async function Page(props: {searchParams?: Promise<{query?: strin
     const PARTSLIST: ComponentListProps[] = COMPONENT_LIST
 
     const resultados = SERVICELIST.filter(item => {
-        
         const nomeLower = item.name.toLowerCase();
         const idLower = item.id.toString().toUpperCase();
-
         return nomeLower.includes(termoLower) || idLower.includes(termoLower);
     });
-
-    console.log(resultados)
-
-
 
     return (
         <div>
