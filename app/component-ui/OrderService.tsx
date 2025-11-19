@@ -205,20 +205,20 @@ export function OrderService({ service }: { service: OSListProps[] }) {
            Nova OS
          </Link>
       </header>
-      <div className="overflow-x-auto shadow-xl rounded-xl mb-6 h-36 md:h-36">
-        <table className="min-w-full h-full rounded-xl shadow-lg p-10">
+      <div className="overflow-x-auto shadow-xl rounded-2xl mb-6 h-56 md:h-36">
+        <table className="min-w-full  h-full rounded-xl shadow-lg">
           <thead className="h-3 bg-white">
             <tr className="divide-x-2 divide-gray-200/50">
-              <th className="px-6 py-2 text-lg font-semibold text-center text-indigo-500 uppercase tracking-wider">Total de serviço (dia)</th>
-              <th className="px-6 py-2 text-lg font-semibold text-center text-indigo-500 uppercase tracking-wider">Total de serviço (semana)</th>
-              <th className="px-6 py-2 text-lg font-semibold text-center text-indigo-500 uppercase tracking-wider">Total de serviço (mês)</th>
+              <th className="px-6 py-2 text-sm font-semibold text-center text-indigo-500 uppercase tracking-wider">Total de serviço (dia)</th>
+              <th className="px-6 py-2 text-sm font-semibold text-center text-indigo-500 uppercase tracking-wider">Total de serviço (semana)</th>
+              <th className="px-6 py-2 text-sm font-semibold text-center text-indigo-500 uppercase tracking-wider">Total de serviço (mês)</th>
             </tr>
           </thead>
           <tbody className="bg-white">
             <tr className="hover:bg-gray-50 divide-x-2 divide-gray-200/50 transition duration-100">
-              <td className="px-6 py-1 whitespace-nowrap text-4xl text-center text-gray-600 font-bold tracking-wider">{osDay}</td>
-              <td className="px-6 py-1 whitespace-nowrap text-4xl text-center text-gray-600 font-bold">{osWeek}</td>
-              <td className="px-6 py-1 whitespace-nowrap text-4xl text-center text-gray-600 font-bold">{osMonth}</td>
+              <td className="px-6 py-1 whitespace-nowrap text-3xl text-center text-gray-600 font-bold tracking-wider">{osDay}</td>
+              <td className="px-6 py-1 whitespace-nowrap text-3xl text-center text-gray-600 font-bold">{osWeek}</td>
+              <td className="px-6 py-1 whitespace-nowrap text-3xl text-center text-gray-600 font-bold">{osMonth}</td>
             </tr>
           </tbody>
         </table>
