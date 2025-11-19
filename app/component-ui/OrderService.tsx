@@ -11,6 +11,7 @@ import { useDebouncedCallback } from "use-debounce";
 
 export function OrderService({ service }: { service: OSListProps[] }) {
   const [osList, setOsList] = useState<OSListProps[]>(service || []);
+  
   const [osDay, setOsDay] = useState<string>('0')
   const [osWeek, setOsWeek] = useState<string>('0')
   const [osMonth, setOsMonth] = useState<string>('0')

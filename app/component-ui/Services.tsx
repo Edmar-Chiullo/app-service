@@ -3,22 +3,13 @@
 import { Activity, useEffect, useState } from 'react';
 import { OsItem, OSListProps } from '../types/interface';
 import { OrderService } from './OrderService';
-import OrderUpdateServiceApp from './OrderUpdateService';
-import OrderCreateService from './CreateOrderService';
 import { formatDate } from '../utils/utils';
 import { db } from '../data/firebase-data';
 import { DataSnapshot, onChildAdded, onChildChanged, ref } from 'firebase/database';
 
-interface CompState {
-  status: boolean,
-  component: string
-}
-
 export default function OSList({ service, query }: { service: OSListProps[] | any[], query: string }) {
   const [osList, setOsList] = useState<OSListProps[]>(service || []);
   const [isOrderServise, setIsOrderService] = useState<boolean>(true)
-  const [isCrieteServise, setIsCreateService] = useState<boolean>(false)
-  const [isUpdateServise, setIsUpdateService] = useState<boolean>(false)
 
   
   useEffect(() => {
