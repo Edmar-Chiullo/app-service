@@ -104,16 +104,16 @@ export function OrderService({ service }: { service: OSListProps[] }) {
     replace(`${pathname}?${params.toString()}`);
   }
 
-  const updateStatus = async ({ status, placa }: { status: string, placa: string }) => {
+  const updateStatus = async ({ status, id }: { status: string, id: string | number }) => {
     // 1. Encontra a OS no estado para pegar a 'dataAbertura' correta
-    const osToUpdate = osList.find(os => os.placa === placa);
+    const osToUpdate = osList.find(os => os.id === id);
 
     if (!osToUpdate) {
-        console.error('OS não encontrada para a placa:', placa);
+        console.error('OS não encontrada para a placa:', id);
         return;
     }
 
-    const path = `orderService/${formatDate(osToUpdate.dataAbertura).replace(/\//g, '')}/${placa}`;
+    const path = `orderService/${formatDate(osToUpdate.dataAbertura).replace(/\//g, '')}/${osToUpdate.id}`;
     
     try {
         // 2. Atualiza o Firebase
@@ -191,7 +191,7 @@ export function OrderService({ service }: { service: OSListProps[] }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-8 font-sans">w
       {/* ... (Header e Botão de Nova OS - Não alterado) ... */}
       <header className="mb-8 flex justify-between items-center flex-wrap gap-4">
          <h1 className="text-3xl font-extrabold text-indigo-700">
@@ -255,13 +255,10 @@ export function OrderService({ service }: { service: OSListProps[] }) {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="h-3 bg-indigo-50">
             <tr>
-              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">OS ID</th>
-              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Placa</th>
-              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Carro</th>
               <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Cliente</th>
               <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Data Abertura</th>
-              <th className="px-6 py-2 text-center text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total</th>
-              <th className="px-6 py-2 text-center text-xs font-semibold text-indigo-700 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total</th>
+              <th className="px-6 py-2 text-left text-xs font-semibold text-indigo-700 uppercase tracking-wider">Status</th>
               <th className="px-6 py-2"></th>
             </tr>
           </thead>
@@ -273,18 +270,15 @@ export function OrderService({ service }: { service: OSListProps[] }) {
                   </td>
                 </tr>
               ) : ( 
-                filteredOsList.map((os: OSListProps) => ( 	 
-                  <tr key={os.placa} className="hover:bg-gray-50 transition duration-100">
-                    <td className="px-6 py-1 whitespace-nowrap text-sm font-medium text-gray-900">{os.itens[0]?.id.toUpperCase()}</td>
-                    <td className="px-6 py-1 whitespace-nowrap text-sm font-semibold text-indigo-600">{os.placa}</td>
-                    <td className="px-6 py-1 whitespace-nowrap text-sm text-gray-800">{os.modelo}</td>
+                filteredOsList.map((os: OSListProps) => (  	 
+                  <tr key={os.id} className="hover:bg-gray-50 transition duration-100">
                     <td className="px-6 py-1 whitespace-nowrap text-sm text-gray-800">{os.nomeCliente}</td>
                     <td className="px-6 py-1 whitespace-nowrap text-sm text-gray-800">{formatDate(os.dataAbertura)}</td>
-                    <td className="px-6 py-1 whitespace-nowrap text-sm font-extrabold text-right text-gray-600">{calculateTotal(os.itens)}</td>
-                    <td className="px-6 py-1 whitespace-nowrap text-center">
+                    <td className="px-6 py-1 whitespace-nowrap text-sm font-extrabold text-left text-gray-600">{calculateTotal(os.itens)}</td>
+                    <td className="px-6 py-1 whitespace-nowrap text-left">
                       <select 
                         value={os.status} 
-                        onChange={(e) => updateStatus({status: e.target.value, placa: os.placa})} 
+                        onChange={(e) => updateStatus({status: e.target.value, id: os.id})} 
                         className={`px-3 py-1 inline-flex text-md leading-5 font-semibold rounded-full hover:cursor-pointer border ${getStatusStyleLocal(os.status)}`}
                       >
                         {statusOptions.map((status) => (
@@ -296,7 +290,7 @@ export function OrderService({ service }: { service: OSListProps[] }) {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <Link
-                          href={`/cadastro/${os.placa}/update-service`}
+                          href={`/cadastro/${os.id}/update-service`}
                           className="text-indigo-600 hover:text-indigo-900 transition duration-150 font-semibold hover:cursor-pointer"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -305,7 +299,7 @@ export function OrderService({ service }: { service: OSListProps[] }) {
                     </td>
                   </tr>
                 ))
-              )}
+            )}
           </tbody>
         </table>
       </div>

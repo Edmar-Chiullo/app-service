@@ -24,7 +24,15 @@ export default function UpdateServiceApp({
   const [filteredItems, setFilteredItems] = useState<Array<ServiceListProps | ComponentListProps>>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [os, setOs] = useState<OrdemServico>(service);
+  const [os, setOs] = useState<OrdemServico>({
+    id: service.id,
+    modelo: service.modelo,
+    nomeCliente: service.nomeCliente,
+    dataAbertura: service.dataAbertura,
+    dataFechamento: service.dataFechamento,
+    status: service.status,
+    itens: service.itens || [],
+  });
 
   const pathname = usePathname();
   const router = useRouter();
@@ -166,7 +174,7 @@ export default function UpdateServiceApp({
   };
 
   // Função para remover item da OS
-  const handleRemoveItem = (id: string) => {
+  const handleRemoveItem = (id: string | number) => {
     setOs(prevOs => ({
       ...prevOs,
       itens: prevOs.itens.filter((item:any) => item.id !== id),
@@ -176,24 +184,21 @@ export default function UpdateServiceApp({
   // Função para salvar a OS (Placeholder para conexão RTDB)
   const handleSaveOS = () => {
  
-    if (os.placa && os.nomeCliente && os.itens.length > 0) { // Adicionado check de itens
-      toast.success(`Ordem de Serviço (para o veículo: ${os.placa}) salva com sucesso!`,
+    if (os.modelo && os.nomeCliente && os.itens.length > 0) { // Adicionado check de itens
+      toast.success(`Ordem de Serviço (para o veículo: ${os.modelo}) salva com sucesso!`,
         { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
       );
     } else {
-      toast.error('Preencha a Placa, Nome do Cliente e adicione pelo menos 1 item antes de salvar.',
+      toast.error('Preencha o Veículo, Nome do Cliente e adicione pelo menos 1 item antes de salvar.',
         { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
       );
     }
 
    // ... (lógica de salvar)
-    set(ref(db, `orderService/${formatDate(os.dataAbertura as number).replace(/\//g, '')}/${os.placa}`), {
-      placa: os.placa,
-      ano: os.ano,
-      marca: os.marca,
+    set(ref(db, `orderService/${formatDate(os.dataAbertura as number).replace(/\//g, '')}/${os.id}`), {
+      id: os.id,
       modelo: os.modelo,
       nomeCliente: os.nomeCliente,
-      cpfCliente: os.cpfCliente,
       dataAbertura: os.dataAbertura,
       dataFechamento: os.dataFechamento,
       status: os.status,
@@ -202,12 +207,9 @@ export default function UpdateServiceApp({
 
     // Resetar a OS após salvar
     setOs({
-      placa: '',
-      ano: '',
-      marca: '',
+      id: '',
       modelo: '',
       nomeCliente: '',
-      cpfCliente: '',
       dataAbertura: Date.now(),
       dataFechamento: 'none',
       status: 'Aberta',
@@ -273,18 +275,6 @@ export default function UpdateServiceApp({
           <h2 className="text-2xl font-semibold text-gray-800 mb-4">Dados do Cliente e Veículo</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Placa do Veículo</label>
-              <input
-                type="text"
-                value={os.placa}
-                onChange={(e) => setOs(p => ({ ...p, placa: e.target.value.toUpperCase() }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 uppercase text-gray-500"
-                placeholder="Ex: ABC1234"
-                maxLength={7}
-                required
-              />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-gray-700">Nome do Cliente</label>
               <input
                 type="text"
@@ -296,41 +286,7 @@ export default function UpdateServiceApp({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">CPF do Cliente (Opcional)</label>
-              <input
-                type="text"
-                value={os.cpfCliente}
-                onChange={(e) => setOs(p => ({ ...p, cpfCliente: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                placeholder="123.456.789-00"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Ano do Veículo</label>
-              <input
-                type="text"
-                value={os.ano}
-                onChange={(e) => setOs(p => ({ ...p, ano: e.target.value.toUpperCase() }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 uppercase text-gray-500"
-                placeholder="Ex: 2025"
-                maxLength={7}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Marca do Veículo</label>
-              <input
-                type="text"
-                value={os.marca}
-                onChange={(e) => setOs(p => ({ ...p, marca: e.target.value }))}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                placeholder="Ex: Volkswagen"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Modelo do Veículo</label>
+              <label className="block text-sm font-medium text-gray-700">Veículo</label>
               <input
                 type="text"
                 value={os.modelo}
@@ -466,7 +422,6 @@ export default function UpdateServiceApp({
             </div>
           </div>
         </div>
-
       </main>
     </div>
   );

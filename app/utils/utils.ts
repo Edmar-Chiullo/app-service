@@ -1,6 +1,9 @@
 import { OrdemServico, OSListProps } from "../types/interface";
 
 export const calculateTotal = (itens: OSListProps['itens']) => {
+    if (!itens || itens.length === 0) {
+        return 'R$ 0,00';
+    }
     const total = itens.reduce((acc, item) => acc + item.valor_unitario * item.quantidade, 0);
     return `R$ ${total.toFixed(2).replace('.', ',')}`;
   }

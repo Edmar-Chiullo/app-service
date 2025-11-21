@@ -16,7 +16,7 @@ export interface Peca extends ItemCatalogoBase {
 }
 
 export interface ItemOS {
-  id: string;
+  id: string | number;
   descricao: string;
   tipo: 'servico' | 'peca';
   quantidade: number;
@@ -24,12 +24,9 @@ export interface ItemOS {
 }
 
 export interface OrdemServico {
-  placa: string;
-  ano: string;
-  marca: string;
-  modelo: string;
+  id: string | number;
+  modelo: string | number;
   nomeCliente: string;
-  cpfCliente: string;
   dataAbertura: number | string;
   dataFechamento: number | 'none' | string;
   status: 'Aberta' | 'Finalizada' | 'Cancelada';
@@ -38,7 +35,7 @@ export interface OrdemServico {
 
 // TIPAGEM DE DADOS
 export interface OSListProps {
-  id: string;
+  id: string | number;
   cpfCliente: string;
   dataAbertura: number;
   itens: Array<{

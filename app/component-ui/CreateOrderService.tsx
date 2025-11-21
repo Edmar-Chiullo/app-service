@@ -25,12 +25,9 @@ export default function CreateService({
   const [filteredItems, setFilteredItems] = useState<Array<ServiceListProps | ComponentListProps>>([]);
 
   const [os, setOs] = useState<OrdemServico>({
-    placa: '',
-    ano: '',
-    marca: '',
+    id: '',
     modelo: '',
     nomeCliente: '',
-    cpfCliente: '',
     dataAbertura: Date.now(),
     dataFechamento: 'none',
     status: 'Aberta',
@@ -144,7 +141,7 @@ export default function CreateService({
     setFilteredItems(itensCatalogoBase); // Restaura a lista completa
   };
 
-  const handleRemoveItem = (id: string) => {
+  const handleRemoveItem = (id: string | number ) => {
     setOs(prevOs => ({
       ...prevOs,
       itens: prevOs.itens.filter(item => item.id !== id),
@@ -152,8 +149,8 @@ export default function CreateService({
   };
 
   const handleSaveOS = () => {
-    if (os.placa && os.nomeCliente && os.itens.length > 0) { // Adicionada validação de itens
-      toast.success(`Ordem de Serviço (para o veículo: ${os.placa}) salva com sucesso!`,
+    if (os.modelo && os.nomeCliente) { // Adicionada validação de itens
+      toast.success(`Ordem de Serviço (para o veículo: ${os.modelo}) salva com sucesso!`,
         { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
       );
     } else {
@@ -161,15 +158,12 @@ export default function CreateService({
         { position: "top-right", autoClose: 3000, hideProgressBar: false, closeOnClick: true, pauseOnHover: true, draggable: true, progress: undefined }
       );
     }
-
+    const id = Math.random().toString(36).substring(2, 9)
       // ... lógica de salvar no DB
-    set(ref(db, `orderService/${formatDate(os.dataAbertura as number).replace(/\//g, '')}/${os.placa}`), {
-      placa: os.placa,
-      ano: os.ano,
-      marca: os.marca,
+    set(ref(db, `orderService/${formatDate(os.dataAbertura as number).replace(/\//g, '')}/${id}`), {
+      id: id, // ID único para o item na OS
       modelo: os.modelo,
       nomeCliente: os.nomeCliente,
-      cpfCliente: os.cpfCliente,
       dataAbertura: os.dataAbertura,
       dataFechamento: 'none',
       status: os.status,
@@ -178,12 +172,9 @@ export default function CreateService({
     
     // Resetar a OS após salvar
     setOs({
-      placa: '',
-      ano: '',
-      marca: '',
+      id: '',
       modelo: '',
       nomeCliente: '',
-      cpfCliente: '',
       dataAbertura: Date.now(),
       dataFechamento: 'none',
       status: 'Aberta',
@@ -260,18 +251,6 @@ export default function CreateService({
           {/* ... (O restante do formulário de dados do cliente/veículo) ... */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
              <div>
-               <label className="block text-sm font-medium text-gray-700">Placa do Veículo</label>
-               <input
-                 type="text"
-                 value={os.placa}
-                 onChange={(e) => setOs(p => ({ ...p, placa: e.target.value.toUpperCase() }))}
-                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 uppercase text-gray-500"
-                 placeholder="Ex: ABC1234"
-                 maxLength={7}
-                 required
-               />
-             </div>
-             <div>
                <label className="block text-sm font-medium text-gray-700">Nome do Cliente</label>
                <input
                  type="text"
@@ -283,41 +262,7 @@ export default function CreateService({
                />
              </div>
              <div>
-               <label className="block text-sm font-medium text-gray-700">CPF do Cliente (Opcional)</label>
-               <input
-                 type="text"
-                 value={os.cpfCliente}
-                 onChange={(e) => setOs(p => ({ ...p, cpfCliente: e.target.value }))}
-                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                 placeholder="123.456.789-00"
-                 required
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700">Ano do Veículo</label>
-               <input
-                 type="text"
-                 value={os.ano}
-                 onChange={(e) => setOs(p => ({ ...p, ano: e.target.value.toUpperCase() }))}
-                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 uppercase text-gray-500"
-                 placeholder="Ex: 2025"
-                 maxLength={7}
-                 required
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700">Marca do Veículo</label>
-               <input
-                 type="text"
-                 value={os.marca}
-                 onChange={(e) => setOs(p => ({ ...p, marca: e.target.value }))}
-                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-500"
-                 placeholder="Ex: Volkswagen"
-                 required
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700">Modelo do Veículo</label>
+               <label className="block text-sm font-medium text-gray-700">Veículo</label>
                <input
                  type="text"
                  value={os.modelo}
